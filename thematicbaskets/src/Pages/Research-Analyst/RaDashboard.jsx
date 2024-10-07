@@ -409,7 +409,7 @@ export default function RaDashboard() {
                                   Exchange Type
                                 </Text>
                                 <Text pt="2" fontSize="sm">
-                                  {basket.exchangeType}
+                                  {basket.exchange}
                                 </Text>
                               </Flex>
                             </Box>
