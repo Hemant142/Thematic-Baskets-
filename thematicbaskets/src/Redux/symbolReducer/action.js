@@ -9,7 +9,7 @@ export const getSymbolsSuccess = (payload) => ({
   type: GET_SYMBOLS_SUCCESS,
   payload,
 });
-let url = "https://centrum.stoq.club/api/backend/symbols/NSE";
+// let url = "https://centrum.stoq.club/api/backend/symbols/NSE";
 // let url="https://odinscripmaster.s3.ap-south-1.amazonaws.com/scripfiles/NSE_EQ.json"
 // export const fetchSymbols = () => (dispatch) => {
 //   dispatch(symbolsRequest());
@@ -253,6 +253,7 @@ console.log(response.data.data.basketList,"fetchUnderlyingIndex")
     // Handle errors by dispatching failure action
     dispatch({
       type: UNDERLYING_INDEX_FAILURE,
+      
       payload: error.response?.data?.message || error.message, // Capture the error message
     });
   }

@@ -774,10 +774,12 @@ const handleAddInstrument = () => {
                             py="2" // Reduced padding for a smaller height
                             textAlign="center" // Center align text
                           /> */}
+
                         </Td>
                         <Td textAlign="center">
                           <Input
                             value={instrument.stopLoss}
+                            
                             onChange={(e) =>
                               handleInputChange(
                                 index,
