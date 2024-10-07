@@ -52,6 +52,7 @@ export default function RaLoginPage() {
   const [formdata, setFormdata] = useState({
     userId: "",
     password: "",
+    userRole:"researchAnalyst"
   });
   const [flipLoginBox, setFlipLoginBox] = useState(false);
   const [otp, setOtp] = useState(""); // OTP value as a single string
@@ -91,6 +92,7 @@ export default function RaLoginPage() {
           });
         }
         if (res.data.access_token) {
+          // console.log(res.data.access_token)
           const token = res.data.access_token;
           setAuthToken(token);
 
@@ -105,7 +107,7 @@ export default function RaLoginPage() {
           // Send OTP request using the Bearer token
           axios
             .post(
-              `${NewURL}web-app/manager/request-otp`,
+              `${NewURL}web-app/manager/request-otp?managerRole=researchAnalyst`,
               {},
               {
                 headers: {

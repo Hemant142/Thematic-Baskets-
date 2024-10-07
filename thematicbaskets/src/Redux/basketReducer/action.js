@@ -2,15 +2,18 @@ import axios from "axios";
 import { BASKET_REQUEST, GET_BASKET_SUCCESS } from "../actionTypes";
 
 // let URL = "https://centrum-backend2.vercel.app";
-let URL="https://centrum.stoq.club/api/backend"
+// let URL="https://centrum.stoq.club/api/backend"
+let URL=process.env.REACT_APP_NewURL
 
 export const getSuccessAction = (payload) => {
   return { type: GET_BASKET_SUCCESS, payload };
 };
 export const fetchBasket = (token) => (dispatch) => {
   dispatch({ type: BASKET_REQUEST });
-  return axios.get(`${URL}/get-list/baskets`, {
-    headers: { "Access-Token": token },
+  return axios.get(`${URL}web-app/baskets`, {
+    headers: {
+      Authorization: `Bearer ${token}`, // Pass Bearer token for authentication
+    },
   
   });
 };
@@ -19,8 +22,10 @@ export const fetchBasket = (token) => (dispatch) => {
 export const postBasketData = (dataToSend, token) => async (dispatch) => {
   try {
     dispatch({ type: BASKET_REQUEST });
-    const response = await axios.post(`${URL}/create-basket`, dataToSend, {
-      headers: { "Access-Token": token },
+    const response = await axios.post(`${URL}web-app/manager/create-baskets`, dataToSend, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Pass Bearer token for authentication
+      },
     });
     console.log(response.data,"response.data")
 if(response.data!==undefined){

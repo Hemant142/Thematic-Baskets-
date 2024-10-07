@@ -23,7 +23,7 @@ export const managerToken = (data) => (dispatch) => {
   console.log(NewURL,"New URL")
   dispatch({ type: USER_LOADING });
   return axios.post(
-    `${process.env.REACT_APP_NewURL}web-app/manager/generate-token?userId=${data.userId}&password=${data.password}`
+    `${process.env.REACT_APP_NewURL}web-app/manager/generate-token?userId=${data.userId}&password=${data.password}&managerRole=${data.userRole}`
   );
 };
 
@@ -42,7 +42,7 @@ console.log(otp,"OTP")
 console.log(authToken,"auth token")
   // Make API call to verify the OTP
   return axios.post(
-    `${NewURL}web-app/manager/verify-otp?otp=${otp}`, 
+    `${NewURL}web-app/manager/verify-otp?otp=${otp}&managerRole=researchAnalyst`, 
     {}, // Pass an empty object for the body
     {
       headers: {

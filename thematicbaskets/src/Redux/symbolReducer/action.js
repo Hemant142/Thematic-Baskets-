@@ -95,7 +95,7 @@ export const fetchSymbols = () => (dispatch) => {
   axios
     .get(url)
     .then((response) => {
- 
+ console.log(response,"fetchSymbols")
       const filteredSortedData = response.data.response
         .filter(
           (item) =>

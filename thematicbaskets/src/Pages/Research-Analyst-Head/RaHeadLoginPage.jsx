@@ -54,6 +54,7 @@ export default function RaHeadLoginPage() {
   const [formdata, setFormdata] = useState({
     userId: "",
     password: "",
+    userRole:"researchAnalystHead"
   });
   const [flipLoginBox, setFlipLoginBox] = useState(false);
   const [otp, setOtp] = useState(""); // OTP value as a single string

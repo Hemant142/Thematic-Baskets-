@@ -101,6 +101,7 @@ export default function CreateBasket() {
     dispatch(fetchSymbols());
   }, []);
 
+
   useEffect(() => {
     setSymbols(data);
   }, [data]);
@@ -335,11 +336,11 @@ export default function CreateBasket() {
         const dataToSend = {
           title: basketData.basket_name.trim(),
           description: basketData.basket_description,
-          rational: basketData.basket_rational,
+          rationale: basketData.basket_rational,
           expiryDate: basketData.expiry_date,
-          creationDate: getCurrentDate(),
-          createdBy: userName,
-          exchangeType: "NSE_EQ",
+          // creationDate: getCurrentDate(),
+          // createdBy: userName,
+          exchange: "NSE",
           // fundRequired: basketData.fund_required,
           // basketInfo: {
           //   annualReturns: basketData.annual_returns,
@@ -347,27 +348,42 @@ export default function CreateBasket() {
           //   cagr: basketData.cagr,
           //   successRate: basketData.success_rate,
           // },
-          instrumentList: tableRows.reduce((acc, item, index) => {
-            // Generate key like c1, c2, c3, etc.
-            const key = `c${index + 1}`;
-            acc[key] = {
-              quantity: item.quantity,
-              name: item.symbol,
-              stopLoss: item.stopLoss,
-              takeProfit: item.takeProfit,
-            };
-            return acc;
-          }, {}),
+          instrumentList: tableRows.map(row => ({
+            instrument: row.symbol, // Symbol becomes instrument
+            securityId: Math.floor(Math.random() * 10000), // Generate securityId
+            stopLoss: Number(row.stopLoss), // Take stopLoss from table row
+            takeProfit: Number(row.takeProfit), // Take takeProfit from table row
+            currentPrice:Number((Math.random() * 500).toFixed(2)), // Fetch or mock current price
+            quantity: Number(row.quantity), // Take quantity from table row
+          })),
+          
+          // [tableRows.reduce((acc, item, index) => {
+          //   // Generate key like c1, c2, c3, etc.
+          //   const key = `c${index + 1}`;
+          //   acc[key] = {
+          //     quantity: item.quantity,
+          //     name: item.symbol,
+          //     stopLoss: item.stopLoss,
+          //     takeProfit: item.takeProfit,
+          //   };
+          //   return acc;
+          // }, {})],
           specialBasket: specialBasket,
-          volatility: volatility,
-          underlyingIndex: underlyingIndex,
-          factSheetURL: factSheetURL,
+          // volatility: volatility,
+          // underlyingIndex: underlyingIndex,
+          // factSheetURL: factSheetURL,
         };
 
         // Log data to be sent
-        // console.log(dataToSend, "data To Send");
+      
         setWait(true);
         dispatch(postBasketData(dataToSend, token)).then((res) => {
+          console.log(res,"postBasketData")
+          if (res.detail === "Token has expired") {
+            Cookies.set("login_token_ra", "");
+            Cookies.set("username_ra", "");
+            navigate("/ra");
+          }
           if (res !== undefined) {
             if (res.status === "success") {
               setWait(false);

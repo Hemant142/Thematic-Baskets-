@@ -39,8 +39,8 @@ import {
 } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router-dom";
 import Navbar from "../../Components/Research-Analyst/Navbar";
-
 import Cookies from "js-cookie";
+
 import axios from "axios";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import { ArrowBackIcon, DeleteIcon, SearchIcon } from "@chakra-ui/icons";
@@ -105,6 +105,8 @@ export default function RaBasketDetails() {
   let { id } = useParams();
   let token = Cookies.get("login_token_ra");
   const Symbols = useSelector((store) => store.symbolsReducer.symbols);
+  let { baskets, loading } = useSelector((store) => store.basketReducer);
+  let userName=Cookies.get("username_ra")
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   
@@ -121,42 +123,50 @@ export default function RaBasketDetails() {
     takeProfit: "",
   });
 
-  const [editableInstruments, setEditableInstruments] = useState([]);
-  const fetchData = async () => {
-    try {
-      const response = await axios.post(
-        `https://centrum.stoq.club/api/backend/get-one/baskets?basket_id=${id}`,
-        {},
-        {
-          headers: { "Access-Token": token },
-        }
-      );
+  const [editableInstruments, setEditableInstruments] = useState([])
 
-      if (
-        response.data.message == "You do not Have permission to access the data"
-      ) {
-        Cookies.set("login_token_ra", "");
-        Cookies.set("username_ra", "");
+ let singleBasket = baskets.filter((data)=>data._id==id&&data.createdBy==userName)
+console.log(singleBasket,"SingleBaskets",baskets)
+if(singleBasket.length>0){
+  setData(singleBasket[0])
+}
+console.log(data)
 
-        navigate("/");
-      }
-      if (response.data.response.data[0].rahStatus == "REJECTED" || "PENDING") {
-        setKillSwitch(false);
-      }
-      if (response.data.response.data[0].rahStatus == "REJECTED") {
-        setRejected(true);
-      }
+  // const fetchData = async () => {
+  //   try {
+  //     const response = await axios.post(
+  //       `https://centrum.stoq.club/centrum-galaxc/user/v1/web-app/baskets?basket_id=${id}`,
+  //       {},
+  //       {
+  //         Authorization: `Bearer ${token}`,
+  //       }
+  //     );
 
-      setStatus(response.data.response.data[0].rahStatus);
-      setData(response.data.response.data[0]);
-    } catch (error) {
-      console.error(error.message, "error");
-    }
-  };
+  //     if (
+  //       response.data.message == "You do not Have permission to access the data"
+  //     ) {
+  //       Cookies.set("login_token_ra", "");
+  //       Cookies.set("username_ra", "");
 
-  useEffect(() => {
-    fetchData();
-  }, [id, token]);
+  //       navigate("/");
+  //     }
+  //     if (response.data.response.data[0].rahStatus == "REJECTED" || "PENDING") {
+  //       setKillSwitch(false);
+  //     }
+  //     if (response.data.response.data[0].rahStatus == "REJECTED") {
+  //       setRejected(true);
+  //     }
+
+  //     setStatus(response.data.response.data[0].rahStatus);
+  //     setData(response.data.response.data[0]);
+  //   } catch (error) {
+  //     console.error(error.message, "error");
+  //   }
+  // };
+
+  // useEffect(() => {
+  //   fetchData();
+  // }, [id, token]);
 
   useEffect(() => {
     if (data) {
