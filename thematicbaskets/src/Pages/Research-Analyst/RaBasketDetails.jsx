@@ -226,7 +226,7 @@ export default function RaBasketDetails() {
   }, [data]);
 
   useEffect(() => {
-    dispatch(fetchSymbols(token));
+    dispatch(fetchSymbols());
   }, []);
 
   if (!data) {

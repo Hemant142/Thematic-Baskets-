@@ -98,7 +98,7 @@ export default function CreateBasket() {
 
   const maxLength = 2500;
   useEffect(() => {
-    dispatch(fetchSymbols(token));
+    dispatch(fetchSymbols());
   }, []);
 
 

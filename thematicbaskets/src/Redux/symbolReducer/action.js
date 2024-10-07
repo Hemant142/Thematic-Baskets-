@@ -9,8 +9,8 @@ export const getSymbolsSuccess = (payload) => ({
   type: GET_SYMBOLS_SUCCESS,
   payload,
 });
-// let url = "https://centrum.stoq.club/api/backend/symbols/NSE";
-let url="https://odinscripmaster.s3.ap-south-1.amazonaws.com/scripfiles/NSE_EQ.json"
+let url = "https://centrum.stoq.club/api/backend/symbols/NSE";
+// let url="https://odinscripmaster.s3.ap-south-1.amazonaws.com/scripfiles/NSE_EQ.json"
 // export const fetchSymbols = () => (dispatch) => {
 //   dispatch(symbolsRequest());
 
@@ -112,7 +112,7 @@ export const fetchSymbols = () => (dispatch) => {
           return 0; // names must be equal
         });
 
-    
+    console.log(filteredSortedData,"filteredSortedData")
       dispatch(getSymbolsSuccess(filteredSortedData));
     })
     .catch((error) => {
