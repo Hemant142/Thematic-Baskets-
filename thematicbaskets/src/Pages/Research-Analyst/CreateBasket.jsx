@@ -98,7 +98,7 @@ export default function CreateBasket() {
 
   const maxLength = 2500;
   useEffect(() => {
-    dispatch(fetchSymbols());
+    dispatch(fetchSymbols(token));
   }, []);
 
 
@@ -340,7 +340,7 @@ export default function CreateBasket() {
           expiryDate: basketData.expiry_date,
           // creationDate: getCurrentDate(),
           // createdBy: userName,
-          exchange: "NSE",
+          exchange: "NSE_EQ",
           // fundRequired: basketData.fund_required,
           // basketInfo: {
           //   annualReturns: basketData.annual_returns,
@@ -370,13 +370,15 @@ export default function CreateBasket() {
           // }, {})],
           specialBasket: specialBasket,
           // volatility: volatility,
-          // underlyingIndex: underlyingIndex,
+          riskLevel:volatility,
+          underlyingIndex: underlyingIndex,
           // factSheetURL: factSheetURL,
         };
 
         // Log data to be sent
       
         setWait(true);
+        console.log(dataToSend,"dataToSend")
         dispatch(postBasketData(dataToSend, token)).then((res) => {
           console.log(res,"postBasketData")
           if (res.detail === "Token has expired") {
@@ -920,7 +922,7 @@ export default function CreateBasket() {
                   type="submit"
                   colorScheme="blue"
                   mt={4}
-                  isLoading={wait}
+                  // isLoading={wait}
                 >
                   Create Basket
                 </Button>
@@ -1347,7 +1349,7 @@ export default function CreateBasket() {
                   type="submit"
                   colorScheme="blue"
                   mt={4}
-                  isLoading={wait}
+                  // isLoading={wait}
                 >
                   Create Basket
                 </Button>

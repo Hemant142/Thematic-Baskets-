@@ -8,6 +8,7 @@ let URL=process.env.REACT_APP_NewURL
 export const getSuccessAction = (payload) => {
   return { type: GET_BASKET_SUCCESS, payload };
 };
+
 export const fetchBasket = (token) => (dispatch) => {
   dispatch({ type: BASKET_REQUEST });
   return axios.get(`${URL}web-app/baskets`, {
@@ -20,6 +21,7 @@ export const fetchBasket = (token) => (dispatch) => {
 
 
 export const postBasketData = (dataToSend, token) => async (dispatch) => {
+  console.log(dataToSend,"dataToSend")
   try {
     dispatch({ type: BASKET_REQUEST });
     const response = await axios.post(`${URL}web-app/manager/create-baskets`, dataToSend, {
@@ -27,7 +29,7 @@ export const postBasketData = (dataToSend, token) => async (dispatch) => {
         Authorization: `Bearer ${token}`, // Pass Bearer token for authentication
       },
     });
-    console.log(response.data,"response.data")
+    console.log(response,"response.data")
 if(response.data!==undefined){
 
   return response.data; // Return the response data if needed elsewhere
@@ -39,21 +41,23 @@ if(response.data!==undefined){
   }
 };
 
-export const fetchSingleBasketData=(id,token)=>async(dispatch)=>{
+// Corrected fetchSingleBasketData function
+export const fetchSingleBasketData = (id, token) => async (dispatch) => {
+  // console.log(id, token);
   try {
-    const response = await axios.post(
-      `${URL}/get-one/baskets?basket_id=${id}`,
-      {},
-      {
-        headers: { "Access-Token": token },
+    const response = await axios.get(`${URL}web-app/single-baskets?basketId=${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`, // Pass Bearer token for authentication
       }
-    );
-
-    return response.data.response.data[0]
+    });
+    
+    // console.log(response.data.data.basketList[0], "fetchSingleBasketData");
+    
+    return response.data; // Return the data for further processing
   } catch (error) {
-    console.error(error.message, "error");
+    console.log(error, "error");
   }
-}
+};
 
 export const updateBasketData =
   (decision, basket_id, token,researchHeadMessage) => async (dispatch) => {
