@@ -113,14 +113,18 @@ export default function RaBasketDetails() {
 
   // Form state for new instrument
   const [newInstrument, setNewInstrument] = useState({
-    quantity: "",
     name: "",
-    stopLoss: "",
-    takeProfit: "",
+    instrument: "",
+    quantity: 0,
+    stopLoss: 0,
+    takeProfit: 0,
+    securityId: 0, // Initialize securityId
+    currentPrice: 0, // Initialize currentPrice
   });
 
+  console.log(newInstrument, "newInstrument");
   const [editableInstruments, setEditableInstruments] = useState([]);
-
+  console.log(editableInstruments, "editableInstruments");
   // Fetch basket data
   // useEffect(() => {
   //   const singleBasket = baskets.find(
@@ -186,34 +190,35 @@ export default function RaBasketDetails() {
       try {
         const response = await dispatch(fetchSingleBasketData(id, token));
         // console.log(response,"fetchSingleBasketData")
-        if(response.detail==="Token has expired"){
+        if (response.detail === "Token has expired") {
           Cookies.set("login_token_ra", "");
           Cookies.set("username_ra", "");
         }
         if (
-                response.data.message == "You do not Have permission to access the data"
-              ) {
-                Cookies.set("login_token_ra", "");
-                Cookies.set("username_ra", "");
-        
-                navigate("/");
-              }
-              if (response.data.basketList[0].rahStatus == "REJECTED" || "PENDING") {
-                setKillSwitch(false);
-              }
-              if (response.data.basketList[0].rahStatus == "REJECTED") {
-                setRejected(true);
-              }
-        
-              setStatus(response.data.basketList[0].rahStatus);
-              setData(response.data.basketList[0]);
+          response.data.message ==
+          "You do not Have permission to access the data"
+        ) {
+          Cookies.set("login_token_ra", "");
+          Cookies.set("username_ra", "");
+
+          navigate("/");
+        }
+        if (response.data.basketList[0].rahStatus == "REJECTED" || "PENDING") {
+          setKillSwitch(false);
+        }
+        if (response.data.basketList[0].rahStatus == "REJECTED") {
+          setRejected(true);
+        }
+
+        setStatus(response.data.basketList[0].rahStatus);
+        setData(response.data.basketList[0]);
       } catch (error) {
         console.log(error, "Error");
       }
     };
 
     fetchData();
-  }, [id, token, dispatch]); 
+  }, [id, token, dispatch]);
 
   useEffect(() => {
     if (data) {
@@ -226,7 +231,7 @@ export default function RaBasketDetails() {
   }, [data]);
 
   useEffect(() => {
-    dispatch(fetchSymbols());
+    dispatch(fetchSymbols(token));
   }, []);
 
   if (!data) {
@@ -303,7 +308,7 @@ export default function RaBasketDetails() {
 
   const handleSymbolName = (symbol) => {
     if (symbol !== "" && symbol !== null) {
-      let filterSymbolName = Symbols.filter((ele) => ele.symbol == symbol);
+      let filterSymbolName = Symbols.filter((ele) => ele.instrument == symbol);
       let result = filterSymbolName[0];
 
       if (result !== undefined) {
@@ -367,40 +372,70 @@ export default function RaBasketDetails() {
     setEditableInstruments(updatedInstruments); // Update the state
   };
 
-  const handleAddInstrument = () => {
-    // Check if all required fields are filled
-    if (
-      !newInstrument.name ||
-      !newInstrument.quantity ||
-      !newInstrument.stopLoss ||
-      !newInstrument.takeProfit
-    ) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields before adding.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-        position: "top-right",
-      });
-      return; // Do not proceed if any field is empty
-    }
-
-    setEditableInstruments([...editableInstruments, newInstrument]);
-    setNewInstrument({ quantity: "", name: "", stopLoss: "", takeProfit: "" }); // Reset form
-    setSearchTerm("");
-    onAddClose(); // Close the add form
-
-    // Show success toast
+  console.log(newInstrument, "newInstrument");
+  
+const handleAddInstrument = () => {
+  // Check if all required fields are filled
+  if (
+    !newInstrument.quantity ||
+    !newInstrument.stopLoss ||
+    !newInstrument.takeProfit
+  ) {
     toast({
-      title: "Instrument Added",
-      description: `${newInstrument.name} was successfully added.`,
-      status: "success",
+      title: "Error",
+      description: "Please fill in all fields before adding.",
+      status: "error",
       duration: 3000,
       isClosable: true,
       position: "top-right",
     });
-  };
+    return; // Do not proceed if any field is empty
+  }
+
+  // Check if the instrument already exists
+  const instrumentExists = editableInstruments.some(
+    (instrument) => instrument.instrument === newInstrument.instrument
+  );
+
+  if (instrumentExists) {
+    toast({
+      title: "Error",
+      description: "Script already exists.",
+      status: "error",
+      duration: 3000,
+      isClosable: true,
+      position: "top-right",
+    });
+    return; // Do not proceed if the instrument already exists
+  }
+
+  // Create a new object without name and instrument
+  const { quantity, stopLoss, takeProfit, securityId, currentPrice,instrument } = newInstrument;
+  const instrumentToAdd = { quantity, stopLoss, takeProfit, securityId, currentPrice,instrument };
+
+  setEditableInstruments([...editableInstruments, instrumentToAdd]);
+  setNewInstrument({
+    name: "",
+    instrument: "",
+    quantity: 0,
+    stopLoss: 0,
+    takeProfit: 0,
+    securityId: 0,
+    currentPrice: 0,
+  });
+  setSearchTerm("");
+  onAddClose(); // Close the add form
+
+  // Show success toast
+  toast({
+    title: "Instrument Added",
+    description: `${newInstrument.name} was successfully added.`,
+    status: "success",
+    duration: 3000,
+    isClosable: true,
+    position: "top-right",
+  });
+};
 
   const isFormValid = () => {
     return (
@@ -702,37 +737,43 @@ export default function RaBasketDetails() {
                 <Table variant="simple" colorScheme="blue" size="md">
                   <Thead bg="gray.100">
                     <Tr>
-                      <Th>#</Th>
+                      <Th textAlign="center">#</Th>
                       <Th>Script Name</Th>
-                      <Th>CMP</Th>
-                      <Th>QTY</Th>
-                      <Th>Stop Loss</Th>
-                      <Th>Take Profit</Th>
-                      <Th>Exit</Th>
+                      <Th textAlign="center">CMP</Th>
+                      <Th textAlign="center">QTY</Th>
+                      <Th textAlign="center">Stop Loss</Th>
+                      <Th textAlign="center">Take Profit</Th>
+                      <Th textAlign="center">Exit</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
                     {editableInstruments.map((instrument, index) => (
                       <Tr key={index} _hover={{ bg: "gray.50" }}>
-                        <Td>{index + 1}</Td>
+                        <Td textAlign="center">{index + 1}</Td>
                         <Td>{handleSymbolName(instrument.instrument)}</Td>
-                        <Td>{instrument.currentPrice}</Td>
-                        <Td>
-                          {instrument.quantity}
-                          {/* <Input
-                        value={instrument.quantity}
-                        onChange={(e) =>
-                          handleInputChange(index, "quantity", e.target.value)
-                        }
-                        size="md" // Changed to medium size
-                        borderColor="gray.300"
-                        borderRadius="md"
-                        width="100%" // Set width to full
-                        _focus={{ borderColor: "blue.400" }}
-                        py="2" // Reduced padding for a smaller height
-                      /> */}
+                        <Td textAlign="center">
+                          {instrument.currentPrice.toFixed(2)}
                         </Td>
-                        <Td>
+                        <Td textAlign="center">
+                          <Input
+                            value={instrument.quantity}
+                            onChange={(e) =>
+                              handleInputChange(
+                                index,
+                                "quantity",
+                                e.target.value
+                              )
+                            }
+                            size="md" // Changed to medium size
+                            borderColor="gray.300"
+                            borderRadius="md"
+                            width="100%" // Set width to full
+                            _focus={{ borderColor: "blue.400" }}
+                            py="2" // Reduced padding for a smaller height
+                            textAlign="center" // Center align text
+                          />
+                        </Td>
+                        <Td textAlign="center">
                           <Input
                             value={instrument.stopLoss}
                             onChange={(e) =>
@@ -748,9 +789,10 @@ export default function RaBasketDetails() {
                             width="100%" // Set width to full
                             _focus={{ borderColor: "red.400" }}
                             py="2" // Reduced padding for a smaller height
+                            textAlign="center" // Center align text
                           />
                         </Td>
-                        <Td>
+                        <Td textAlign="center">
                           <Input
                             value={instrument.takeProfit}
                             onChange={(e) =>
@@ -766,14 +808,14 @@ export default function RaBasketDetails() {
                             width="100%" // Set width to full
                             _focus={{ borderColor: "green.400" }}
                             py="2" // Reduced padding for a smaller height
+                            textAlign="center" // Center align text
                           />
                         </Td>
-                        <Td>
+                        <Td textAlign="center">
                           <Button
                             leftIcon={<DeleteIcon />}
                             colorScheme="red"
                             size="sm"
-                            // borderRadius="md"
                             _hover={{ bg: "red.100", transform: "scale(1.05)" }}
                             onClick={() => handleDelete(index)}
                           >
@@ -828,6 +870,7 @@ export default function RaBasketDetails() {
         </Drawer>
 
         {/* Add Instrument Modal */}
+
         <Drawer
           isOpen={isAddOpen}
           placement="right"
@@ -922,7 +965,15 @@ export default function RaBasketDetails() {
                                 setNewInstrument({
                                   ...newInstrument,
                                   name: item.name,
-                                }); // Update the selected name
+                                  instrument: item.instrument, // Assuming `symbol` is the identifier for the instrument
+                                  securityId: item.securityId, // Ensure that securityId is part of your item
+                                  currentPrice:
+                                    item.cmp === 0
+                                      ? Math.floor(
+                                          Math.random() * (500 - 10 + 1)
+                                        ) + 10
+                                      : item.cmp, // Ensure that currentPrice is part of your item
+                                }); // Update the selected name and additional fields
                               }}
                               cursor="pointer"
                               _hover={{ background: "gray.100" }}
@@ -947,13 +998,21 @@ export default function RaBasketDetails() {
               </FormControl>
 
               <FormControl mb="4">
+                <FormLabel>Current Price</FormLabel>
+                <Text bg="gray.100" p={2} borderRadius="md" fontWeight="bold">
+                  {newInstrument.currentPrice}{" "}
+                  {/* Show 'N/A' if no price is selected */}
+                </Text>
+              </FormControl>
+
+              <FormControl mb="4">
                 <FormLabel>Quantity</FormLabel>
                 <Input
                   value={newInstrument.quantity}
                   onChange={(e) =>
                     setNewInstrument({
                       ...newInstrument,
-                      quantity: e.target.value,
+                      quantity: Number(e.target.value),
                     })
                   }
                   placeholder="Quantity"
@@ -969,7 +1028,7 @@ export default function RaBasketDetails() {
                   onChange={(e) =>
                     setNewInstrument({
                       ...newInstrument,
-                      stopLoss: e.target.value,
+                      stopLoss: Number(e.target.value),
                     })
                   }
                   isRequired
@@ -985,7 +1044,7 @@ export default function RaBasketDetails() {
                   onChange={(e) =>
                     setNewInstrument({
                       ...newInstrument,
-                      takeProfit: e.target.value,
+                      takeProfit: Number(e.target.value),
                     })
                   }
                   isRequired

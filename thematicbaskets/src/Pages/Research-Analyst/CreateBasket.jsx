@@ -37,15 +37,16 @@ import { Table, Thead, Tbody, Tr, Th, Td } from "@chakra-ui/react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 // import { fetchSymbols } from "../Redux/symbolReducer/action";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchSymbols } from "../../Redux/symbolReducer/action";
+import { fetchSymbols, fetchUnderlyingIndex } from "../../Redux/symbolReducer/action";
 import { postBasketData } from "../../Redux/basketReducer/action";
 import Navbar from "../../Components/Research-Analyst/Navbar";
-
 
 export default function CreateBasket() {
   const location = useLocation();
   const dispatch = useDispatch();
   const data = useSelector((store) => store.symbolsReducer.symbols);
+  const underLyingIndex=useSelector((store)=>store.symbolsReducer.underlyingIndex);
+  // console.log(underLyingIndex,"underlying ")
   let token = Cookies.get("login_token_ra");
 
   const initialData = {
@@ -98,7 +99,8 @@ export default function CreateBasket() {
 
   const maxLength = 2500;
   useEffect(() => {
-    dispatch(fetchSymbols());
+    dispatch(fetchSymbols(token));
+    dispatch(fetchUnderlyingIndex(token));
   }, []);
 
 
@@ -146,26 +148,33 @@ export default function CreateBasket() {
 
   const handleRowChange = (index, key, value) => {
     const updatedRows = [...tableRows];
-    updatedRows[index][key] = value;
-
+  
+    // Ensure the value is stored as a number
+    const numericValue = parseFloat(value);
+  
+    updatedRows[index][key] = numericValue;
+  
     setIndex(index);
+  
+    // Check if stopLoss is greater than or equal to takeProfit
     if (
       key === "stopLoss" &&
-      parseFloat(value) >= parseFloat(updatedRows[index].takeProfit)
+      numericValue >= parseFloat(updatedRows[index].takeProfit)
     ) {
-      updatedRows[index].takeProfit = (parseFloat(value) + 1).toString();
+      updatedRows[index].takeProfit = (numericValue + 1).toString();
     }
-
+  
+    // Check if takeProfit is less than or equal to stopLoss
     if (
       key === "takeProfit" &&
-      parseFloat(value) <= parseFloat(updatedRows[index].stopLoss)
+      numericValue <= parseFloat(updatedRows[index].stopLoss)
     ) {
-      updatedRows[index].stopLoss = (parseFloat(value) - 1).toString();
+      updatedRows[index].stopLoss = (numericValue - 1).toString();
     }
-
+  
     setTableRows(updatedRows);
   };
-
+  
   const handleNumRowsChange = (e) => {
     const value = parseInt(e.target.value, 10);
     if (value > 15) {
@@ -180,33 +189,49 @@ export default function CreateBasket() {
     if (numRows > 0 && numRows <= 15) {
       const newRows = Array.from({ length: numRows }, () => ({
         name: "",
-        symbol: "",
-        quantity: "",
-        stopLoss: "",
-        takeProfit: "",
+        instrument: "",
+        quantity: 0,
+        stopLoss: 0,
+        takeProfit: 0,
+        securityId: 0,
+        currentPrice: 0,
       }));
       setTableRows(newRows);
     }
   };
 
   const handleSelectChange = (index, value) => {
-    const selectedSymbol = symbols.find((symbol) => symbol.symbol === value);
+    const selectedSymbol = symbols.find(
+      (symbol) => symbol.instrument === value
+    );
+  
     if (selectedSymbol) {
       setTableRows((prevRows) => {
         const updatedRows = [...prevRows];
+  
+        // Generate a random value between 10 and 500 if the cmp is 0
+        const cmpValue =
+          selectedSymbol.cmp === 0
+            ? Math.floor(Math.random() * (500 - 10 + 1)) + 10
+            : selectedSymbol.cmp;
+  
         updatedRows[index] = {
           ...updatedRows[index], // Keep other fields unchanged
-          name: selectedSymbol.name, // Update only `name`
-          symbol: selectedSymbol.symbol, // Update only `symbol`
+          name: selectedSymbol.name, // Update the `name`
+          instrument: selectedSymbol.instrument, // Update the `instrument`
+          securityId: selectedSymbol.securityId, // Set the `securityId`
+          currentPrice: cmpValue, // Set the `currentPrice` (cmp)
         };
+  
         return updatedRows;
       });
-
+  
       const newShowOptions = [...showOptions];
-      newShowOptions[index] = false;
+      newShowOptions[index] = false; // Close the dropdown after selection
       setShowOptions(newShowOptions);
     }
   };
+  
 
   const handleSearchChange = (index, value) => {
     setIndex(index);
@@ -348,15 +373,15 @@ export default function CreateBasket() {
           //   cagr: basketData.cagr,
           //   successRate: basketData.success_rate,
           // },
-          instrumentList: tableRows.map(row => ({
-            instrument: row.symbol, // Symbol becomes instrument
-            securityId: Math.floor(Math.random() * 10000), // Generate securityId
+          instrumentList: tableRows.map((row) => ({
+            instrument: row.instrument, // Symbol becomes instrument
+            securityId: Number(row.securityId), // Generate securityId
             stopLoss: Number(row.stopLoss), // Take stopLoss from table row
             takeProfit: Number(row.takeProfit), // Take takeProfit from table row
-            currentPrice:Number((Math.random() * 500).toFixed(2)), // Fetch or mock current price
+            currentPrice: Number(row.currentPrice), // Fetch or mock current price
             quantity: Number(row.quantity), // Take quantity from table row
           })),
-          
+
           // [tableRows.reduce((acc, item, index) => {
           //   // Generate key like c1, c2, c3, etc.
           //   const key = `c${index + 1}`;
@@ -370,32 +395,45 @@ export default function CreateBasket() {
           // }, {})],
           specialBasket: specialBasket,
           // volatility: volatility,
-          riskLevel:volatility,
+          riskLevel: volatility,
           underlyingIndex: underlyingIndex,
           // factSheetURL: factSheetURL,
         };
 
         // Log data to be sent
-      
+
         setWait(true);
-        console.log(dataToSend,"dataToSend")
-        dispatch(postBasketData(dataToSend, token)).then((res) => {
-          console.log(res,"postBasketData")
-          if (res.detail === "Token has expired") {
-            Cookies.set("login_token_ra", "");
-            Cookies.set("username_ra", "");
-            navigate("/ra");
-          }
+       
+        dispatch(postBasketData(dataToSend, token))
+        .then((res) => {
+          
+      
           if (res !== undefined) {
-            if (res.status === "success") {
-              setWait(false);
+            if (res.detail === "Token has expired") {
+              Cookies.set("login_token_ra", "");
+              Cookies.set("username_ra", "");
+              navigate("/ra");
+            }
+      
+            if (res.status === "failed") {
               toast({
-                title: `Basket successfully created`,
+                title: `${res.message || "Action failed"}`,
                 position: "bottom",
-                status: `${res.status}`,
+                status: "warning", // Ensure the status is always valid
                 duration: 2000,
                 isClosable: true,
               });
+            } else if (res.status === "success") {
+              setWait(false);
+              toast({
+                title: "Basket successfully created",
+                position: "bottom",
+                status: "success", // Ensure the status is always valid
+                duration: 2000,
+                isClosable: true,
+              });
+      
+              // Reset the form fields
               setCurrentMonthReturns("");
               setFourMonthReturns(["", "", "", ""]);
               setNumRows([]);
@@ -409,34 +447,33 @@ export default function CreateBasket() {
               setFactSheetURL("");
             } else {
               setWait(false);
-              if (
-                res.message == "You do not Have permission to access the data"
-              ) {
+      
+              if (res.message === "You do not Have permission to access the data") {
                 Cookies.set("login_token_ra", "");
                 Cookies.set("username_ra", "");
                 navigate("/ra");
               }
+      
               toast({
-                title: `${res.message}`,
+                title: `${res.message || "Unknown error occurred"}`,
                 position: "bottom",
-                status: `${res.status}`,
+                status: "error", // Ensure a valid status is passed
                 duration: 2000,
                 isClosable: true,
               });
             }
-          }
-
-          if (res == undefined) {
+          } else {
+            // Handle undefined response
             toast({
-              title: `${"Basket Name Already Exists"}`,
+              title: "Basket Name Already Exists",
               position: "bottom",
-              status: `warning`,
+              status: "warning", // Ensure the status is always valid
               duration: 2000,
               isClosable: true,
             });
             setWait(false);
           }
-        });
+        })
 
         setIsLoading(false);
       } catch (error) {
@@ -457,7 +494,9 @@ export default function CreateBasket() {
             as={Link}
             to="/ra/dashboard"
             fontWeight="bold"
-            color={location.pathname === "/ra/dashboard" ? "#244c9c" : "gray.500"}
+            color={
+              location.pathname === "/ra/dashboard" ? "#244c9c" : "gray.500"
+            }
             borderBottom={location.pathname === "/ra/dashboard" && "2px solid"}
             borderColor={location.pathname === "/ra/dashboard" && "#244c9c"}
             pb={2}
@@ -473,7 +512,9 @@ export default function CreateBasket() {
             color={
               location.pathname === "/ra/create-basket" ? "#244c9c" : "gray.500"
             }
-            borderBottom={location.pathname === "/ra/create-basket" && "2px solid"}
+            borderBottom={
+              location.pathname === "/ra/create-basket" && "2px solid"
+            }
             borderColor={location.pathname === "/ra/create-basket" && "#244c9c"}
             pb={2}
             _hover={{ color: "#244c9c" }}
@@ -629,73 +670,20 @@ export default function CreateBasket() {
                   </FormControl>
 
                   <FormControl mb={4}>
-                    <FormLabel htmlFor="currentMonthReturns">
-                      Select Underlying Index
-                    </FormLabel>
-                    <Select
-                      required
-                      value={underlyingIndex}
-                      onChange={(e) => setUnderlyingIndex(e.target.value)}
-                    >
-                      <option value="">Select Underlying Index</option>
-                      <option value="NIFTY 50">NIFTY 50</option>
-                      <option value="NIFTY MIDCAP 100">
-                        NIFTY MIDCAP 100{" "}
-                      </option>
-                      <option value="NIFTY BANK">NIFTY BANK</option>
-                      <option value="NIFTY 100">NIFTY 100</option>
-                      <option value="NIFTY COMMODITIES">
-                        NIFTY COMMODITIES
-                      </option>
-                      <option value="NIFTY CONSUMPTION">
-                        NIFTY CONSUMPTION
-                      </option>
-                      <option value="NIFTY FIN SERVICE">
-                        NIFTY FIN SERVICE
-                      </option>
-                      <option value="NIFTY IT">NIFTY IT</option>
-                      <option value="NIFTY MIDCAP 50"> NIFTY MIDCAP 50</option>
-                      <option value="NIFTY REALTY">NIFTY REALTY</option>
-                      <option value="NIFTY INFRA">NIFTY INFRA</option>
-                      <option value="NIFTY ENERGY"> NIFTY ENERGY</option>
-                      <option value="NIFTY FMCG">NIFTY FMCG</option>
-                      <option value="NIFTY MNC">NIFTY MNC</option>
-                      <option value="NIFTY PHARMA">NIFTY PHARMA</option>
-                      {/* <option value="NIFTY PSU">NIFTY PSU</option> */}
-                      {/* <option value="NIFTY PSU">NIFTY PSU</option> */}
-                      <option value="NIFTY AUTO">NIFTY AUTO</option>
-                      <option value="NIFTY METAL">NIFTY METAL</option>
-                      <option value="NIFTY MEDIA">NIFTY MEDIA</option>
-                      <option value="NIFTY ALPHA 50">NIFTY ALPHA 50</option>
-                      <option value="NIFTY MIDCAP 150">NIFTY MIDCAP 150</option>
-                      <option value="NIFTY SMLCAP 50">NIFTY SMLCAP 50</option>
-                      <option value="NIFTY SMLCAP 100">NIFTY SMLCAP 100</option>
-                      <option value="NIFTY SMLCAP 250 ">
-                        NIFTY SMLCAP 250{" "}
-                      </option>
-                      <option value="NIFTY 500">NIFTY 500</option>
-                      <option value="NIFTY CPSE">NIFTY CPSE</option>
-                      <option value="NIFTY NEXT 50">NIFTY NEXT 50</option>
-                      <option value="NIFTY MID SELECT">NIFTY MID SELECT</option>
-                      <option value="NIFTY HEALTHCARE">NIFTY HEALTHCARE</option>
-                      <option value="NIFTY CONSR DURBL">
-                        NIFTY CONSR DURBL
-                      </option>
-                      <option value="NIFTY OIL AND GAS">
-                        NIFTY OIL AND GAS
-                      </option>
-                      <option value="NIFTY LARGEMID250">
-                        NIFTY LARGEMID250
-                      </option>
-                      <option value="NIFTY INDIA MFG">NIFTY INDIA MFG</option>
-                      <option value="NIFTY IND DIGITAL">
-                        NIFTY IND DIGITAL
-                      </option>
-                      <option value="NIFTY TATA 25 CAP">
-                        NIFTY TATA 25 CAP
-                      </option>
-                    </Select>
-                  </FormControl>
+      <FormLabel htmlFor="currentMonthReturns">Select Underlying Index</FormLabel>
+      <Select
+        required
+        value={underlyingIndex}
+        onChange={(e) => setUnderlyingIndex(e.target.value)}
+      >
+        <option value="">Select Underlying Index</option>
+        {underLyingIndex.map((index) => (
+          <option key={index.instrument} value={index.instrument}>
+            {index.instrument}
+          </option>
+        ))}
+      </Select>
+    </FormControl>
                 </Box>
 
                 <FormControl mb={4}>
@@ -735,9 +723,11 @@ export default function CreateBasket() {
                         <Tr>
                           <Th>#</Th>
                           <Th textTransform="capitalize">Scripts</Th>
-                          <Th textTransform="capitalize">Quantity </Th>
-                          <Th textTransform="capitalize">Take Profit </Th>
-                          <Th textTransform="capitalize">Stop Loss </Th>
+                          <Th textTransform="capitalize">CMP</Th>{" "}
+                          {/* Adding CMP column */}
+                          <Th textTransform="capitalize">Quantity</Th>
+                          <Th textTransform="capitalize">Take Profit</Th>
+                          <Th textTransform="capitalize">Stop Loss</Th>
                         </Tr>
                       </Thead>
                       <Tbody>
@@ -745,11 +735,12 @@ export default function CreateBasket() {
                           <Tr key={index}>
                             <Td>{index + 1}</Td>
 
+                            {/* Scripts dropdown */}
                             <Td>
                               <Box
                                 position="relative"
                                 display="inline-block"
-                                width="283px"
+                                width="200px"
                                 ref={dropdownRef}
                               >
                                 <InputGroup>
@@ -834,11 +825,11 @@ export default function CreateBasket() {
                                       {filteredSymbols.length ? (
                                         filteredSymbols.map((item) => (
                                           <ListItem
-                                            key={item.symbol}
+                                            key={item.instrument}
                                             onClick={() =>
                                               handleSelectChange(
                                                 index,
-                                                item.symbol
+                                                item.instrument
                                               )
                                             }
                                             cursor="pointer"
@@ -863,6 +854,17 @@ export default function CreateBasket() {
                               </Box>
                             </Td>
 
+                            {/* CMP (Current Market Price) - non-editable */}
+                            <Td>
+                              <Input
+                                value={row.currentPrice || 0}
+                                isReadOnly
+                                bg="gray.200"
+                                variant="filled"
+                              />
+                            </Td>
+
+                            {/* Quantity - number input */}
                             <Td>
                               <Input
                                 value={row.quantity}
@@ -880,6 +882,7 @@ export default function CreateBasket() {
                               />
                             </Td>
 
+                            {/* Take Profit - number input */}
                             <Td>
                               <Input
                                 value={row.takeProfit}
@@ -895,6 +898,8 @@ export default function CreateBasket() {
                                 placeholder="Take Profit"
                               />
                             </Td>
+
+                            {/* Stop Loss - number input */}
                             <Td>
                               <Input
                                 value={row.stopLoss}
@@ -1261,11 +1266,11 @@ export default function CreateBasket() {
                                       {filteredSymbols.length ? (
                                         filteredSymbols.map((item) => (
                                           <ListItem
-                                            key={item.symbol}
+                                            key={item.instrument}
                                             onClick={() =>
                                               handleSelectChange(
                                                 index,
-                                                item.symbol
+                                                item.instrument
                                               )
                                             }
                                             cursor="pointer"
