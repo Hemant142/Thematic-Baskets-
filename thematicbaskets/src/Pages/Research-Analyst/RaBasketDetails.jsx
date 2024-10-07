@@ -755,7 +755,9 @@ const handleAddInstrument = () => {
                           {instrument.currentPrice.toFixed(2)}
                         </Td>
                         <Td textAlign="center">
-                          <Input
+                        {instrument.quantity}
+                          {/* <Input
+                         
                             value={instrument.quantity}
                             onChange={(e) =>
                               handleInputChange(
@@ -771,7 +773,7 @@ const handleAddInstrument = () => {
                             _focus={{ borderColor: "blue.400" }}
                             py="2" // Reduced padding for a smaller height
                             textAlign="center" // Center align text
-                          />
+                          /> */}
                         </Td>
                         <Td textAlign="center">
                           <Input
