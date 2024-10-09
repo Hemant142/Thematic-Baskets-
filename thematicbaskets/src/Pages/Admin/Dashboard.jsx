@@ -345,7 +345,7 @@ export default function Dashboard() {
                       <CardHeader p={4} bg="gray.50">
                         <Flex align="center">
                           <Image
-                            src={basket.basketSymbolUrl}
+                            src={basket.basketSymbolURL}
                             alt={basket.title}
                             boxSize="50px"
                             mr={4}
@@ -445,7 +445,7 @@ export default function Dashboard() {
                                 Exchange Type
                               </Text>
                               <Text pt="2" fontSize="sm">
-                                {basket.exchangeType}
+                                {basket.exchange}
                               </Text>
                             </Flex>
                           </Box>

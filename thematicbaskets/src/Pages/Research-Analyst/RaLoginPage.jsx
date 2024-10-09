@@ -163,9 +163,13 @@ export default function RaLoginPage() {
         isClosable: true,
       });
     }
+    let data={
+      otp:otp,
+      mangerRole:"researchAnalyst"
+    }
 
     // Dispatch OTP verification action
-    dispatch(otpVarificationManager(otp, authToken))
+    dispatch(otpVarificationManager(data, authToken))
       .then((response) => {
         console.log(response, "otpVarificationManager");
         if (response.data.status === "success") {
@@ -248,7 +252,7 @@ export default function RaLoginPage() {
     // Send OTP request using the Bearer token
     axios
       .post(
-        `${NewURL}web-app/manager/request-otp`,
+        `${NewURL}web-app/manager/request-otp?managerRole=researchAnalyst`,
         {},
         {
           headers: {

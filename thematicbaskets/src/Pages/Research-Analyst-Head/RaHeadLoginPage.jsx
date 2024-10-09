@@ -67,7 +67,7 @@ export default function RaHeadLoginPage() {
 
   useEffect(()=>{
     if (token) {
-      return navigate("/rh/dashboard");
+      return navigate("/rahead/dashboard");
     }
 
   },[])
@@ -107,7 +107,7 @@ export default function RaHeadLoginPage() {
           // Send OTP request using the Bearer token
           axios
             .post(
-              `${NewURL}web-app/manager/request-otp`,
+              `${NewURL}web-app/manager/request-otp?managerRole=researchAnalystHead`,
               {},
               {
                 headers: {
@@ -116,6 +116,7 @@ export default function RaHeadLoginPage() {
               }
             )
             .then((otpResponse) => {
+              console.log(otpResponse,"otpResponse")
               toast({
                 title: "OTP sent to your registered email!",
                 position: "bottom",
@@ -163,8 +164,12 @@ export default function RaHeadLoginPage() {
       });
     }
 
+    let data={
+      otp:otp,
+      mangerRole:"researchAnalystHead"
+    }
     // Dispatch OTP verification action
-    dispatch(otpVarificationManager(otp, authToken))
+    dispatch(otpVarificationManager(data, authToken))
       .then((response) => {
         console.log(response, "otpVarificationManager");
         if (response.data.status === "success") {
@@ -244,7 +249,7 @@ export default function RaHeadLoginPage() {
     // Send OTP request using the Bearer token
     axios
       .post(
-        `${NewURL}web-app/manager/request-otp`,
+        `${NewURL}web-app/manager/request-otp?managerRole=researchAnalystHead`,
         {},
         {
           headers: {

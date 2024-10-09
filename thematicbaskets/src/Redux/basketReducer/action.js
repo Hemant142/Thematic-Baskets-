@@ -59,15 +59,18 @@ export const fetchSingleBasketData = (id, token) => async (dispatch) => {
   }
 };
 
-export const updateBasketData =
-  (decision, basket_id, token,researchHeadMessage) => async (dispatch) => {
-
+// Edit basket
+export const editBasketData =
+  (basket_id, token,data) => async (dispatch) => {
+console.log(basket_id,token,data)
     try {
-      const response = await axios.post(
-        `${URL}/permitions/baskets?basket_id=${basket_id}&basket_decision=${decision}&rejection_reason=${researchHeadMessage}`,
-        {researchHeadMessage}, 
+      const response = await axios.put(
+        `${URL}web-app/manager/edit-baskets?basketId=${basket_id}`,
+        data, 
         {
-          headers: { "Access-Token": token }, // <-- Headers configuration
+          headers: {
+            Authorization: `Bearer ${token}`, // Pass Bearer token for authentication
+          } 
         }
       );
       if(response.data.success=="success"){
@@ -77,6 +80,32 @@ export const updateBasketData =
       return response.data; // Return the response data if needed elsewhere
     } catch (error) {
       console.error("Error updating basket:", error);
+      throw new Error(error); // Optionally re-throw the error for further handling
+    }
+  };
+
+
+  export const makeBasketDecision =
+  (decision, basket_id, token, researchHeadMessage) => async (dispatch) => {
+    console.log("Token:", token);
+    console.log("Decision:", decision, "Basket ID:", basket_id, "Reason:", researchHeadMessage);
+
+    try {
+      const response = await axios.put(
+        `${URL}web-app/manager/make-baskets-decision?basketId=${basket_id}&reason=${researchHeadMessage}&decision=${decision}`,  // Fixed parameter order
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Bearer token for authentication
+          },
+        }
+      );
+
+      console.log("Response:", response.data);  // Check the API response
+
+      return response.data; // Return the response data if needed elsewhere
+    } catch (error) {
+      console.error("Error updating basket:", error.response ? error.response.data : error.message);  // Detailed error logging
       throw new Error(error); // Optionally re-throw the error for further handling
     }
   };

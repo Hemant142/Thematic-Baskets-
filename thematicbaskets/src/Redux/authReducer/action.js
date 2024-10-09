@@ -20,7 +20,7 @@ export const userlogin = (data) => (dispatch) => {
 
 
 export const managerToken = (data) => (dispatch) => {
-  console.log(NewURL,"New URL")
+  // console.log(NewURL,"New URL")
   dispatch({ type: USER_LOADING });
   return axios.post(
     `${process.env.REACT_APP_NewURL}web-app/manager/generate-token?userId=${data.userId}&password=${data.password}&managerRole=${data.userRole}`
@@ -36,13 +36,13 @@ export const dealerToken = (data) => (dispatch) => {
     );
   };
 // Action for OTP verification
-export const otpVarificationManager = (otp, authToken) => (dispatch) => {
+export const otpVarificationManager = (data, authToken) => (dispatch) => {
   dispatch({ type: USER_LOADING }); // Dispatch loading state
-console.log(otp,"OTP")
-console.log(authToken,"auth token")
+// console.log(data,"OTP")
+// console.log(authToken,"auth token")
   // Make API call to verify the OTP
   return axios.post(
-    `${NewURL}web-app/manager/verify-otp?otp=${otp}&managerRole=researchAnalyst`, 
+    `${NewURL}web-app/manager/verify-otp?otp=${data.otp}&managerRole=${data.mangerRole}`, 
     {}, // Pass an empty object for the body
     {
       headers: {

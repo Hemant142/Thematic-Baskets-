@@ -47,7 +47,7 @@ import { ArrowBackIcon, DeleteIcon, SearchIcon } from "@chakra-ui/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchSymbols } from "../../Redux/symbolReducer/action";
 import { MdArrowDropDown } from "react-icons/md";
-import { fetchSingleBasketData } from "../../Redux/basketReducer/action";
+import { editBasketData, fetchSingleBasketData } from "../../Redux/basketReducer/action";
 
 const clientData = [
   { id: 1, name: "Hemant" },
@@ -77,8 +77,10 @@ export default function RaBasketDetails() {
   const [currentPage, setCurrentPage] = useState(1);
   const [clientCurrentPage, setClientCurrentPage] = useState(1);
   const [status, setStatus] = useState("");
+  const [statusUpdated,setStatusUpdated]=useState(true)
   const [activeTab, setActiveTab] = useState(0);
   const [totalFundRequired, setTotalFundRequired] = useState(0);
+  const [newBasketValue, setNewBasketValue] = useState(0);
   const [killSwitch, setKillSwitch] = useState(true);
   const [rejected, setRejected] = useState(false);
   const navigate = useNavigate();
@@ -87,7 +89,8 @@ export default function RaBasketDetails() {
   const dropdownRef = useRef(null);
   const [showOptions, setShowOptions] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-
+  const [reason,setReason]=useState("")
+// console.log(data,"data")
   const handleSearchInputChange = (value) => {
     setSearchTerm(value);
   };
@@ -100,8 +103,7 @@ export default function RaBasketDetails() {
   let { id } = useParams();
   let token = Cookies.get("login_token_ra");
   const Symbols = useSelector((store) => store.symbolsReducer.symbols);
-  // let { baskets, loading } = useSelector((store) => store.basketReducer);
-  // let userName = Cookies.get("username_ra");
+
 
   const { isOpen, onOpen, onClose } = useDisclosure();
 
@@ -115,6 +117,7 @@ export default function RaBasketDetails() {
   const [newInstrument, setNewInstrument] = useState({
     name: "",
     instrument: "",
+    orderType: "Entry",
     quantity: 0,
     stopLoss: 0,
     takeProfit: 0,
@@ -122,74 +125,44 @@ export default function RaBasketDetails() {
     currentPrice: 0, // Initialize currentPrice
   });
 
-  console.log(newInstrument, "newInstrument");
+ 
   const [editableInstruments, setEditableInstruments] = useState([]);
-  console.log(editableInstruments, "editableInstruments");
-  // Fetch basket data
-  // useEffect(() => {
-  //   const singleBasket = baskets.find(
-  //     (data) => data._id === id && data.createdBy === userName
-  //   );
-  //   if (singleBasket) {
-  //     setData(singleBasket);
-  //   }
-  // }, [baskets, id, userName]); // Adding dependencies to prevent infinite loop
 
   useEffect(() => {
     if (data) {
       const total = instruments.reduce(
-        (acc, instrument) => acc + calculateFundREquired(instrument),
-        0
-      );
+        (acc, instrument) =>  {
+          // Check if the instrument's orderType is 'Entry'
+          if (instrument.orderType === 'Entry') {
+            return acc + calculateFundREquired(instrument);
+          }
+          return acc; // Skip other order types
+        }, 0);
       setTotalFundRequired(total);
     }
-  }, [data]);
 
-  // console.log(token,"Token")
-  //  let singleBasket = baskets.filter((data)=>data._id==id&&data.createdBy==userName)
-  // console.log(singleBasket,"SingleBaskets",baskets)
-  // if(singleBasket.length>0){
-  //   setData(singleBasket[0])
-  // }
-  // console.log(data)
+    if (editableInstruments) {
+      const total = editableInstruments.reduce((acc, instrument) => {
+        // Check if the instrument's orderType is 'Entry'
+        if (instrument.orderType === 'Entry') {
+          return acc + calculateFundREquired(instrument);
+        }
+        return acc; // Skip other order types
+      }, 0);
+    
+   
+    
+      setNewBasketValue(total);
+    }
+    
+  }, [data, editableInstruments]);
 
-  // const fetchData = async () => {
-  //   try {
-  //     const response = await axios.post(
-  //       `https://centrum.stoq.club/centrum-galaxc/user/v1/web-app/baskets?basket_id=${id}`,
-  //       {},
-  //       {
-  //         Authorization: `Bearer ${token}`,
-  //       }
-  //     );
-
-  //     if (
-  //       response.data.message == "You do not Have permission to access the data"
-  //     ) {
-  //       Cookies.set("login_token_ra", "");
-  //       Cookies.set("username_ra", "");
-
-  //       navigate("/");
-  //     }
-  //     if (response.data.response.data[0].rahStatus == "REJECTED" || "PENDING") {
-  //       setKillSwitch(false);
-  //     }
-  //     if (response.data.response.data[0].rahStatus == "REJECTED") {
-  //       setRejected(true);
-  //     }
-
-  //     setStatus(response.data.response.data[0].rahStatus);
-  //     setData(response.data.response.data[0]);
-  //   } catch (error) {
-  //     console.error(error.message, "error");
-  //   }
-  // };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await dispatch(fetchSingleBasketData(id, token));
-        // console.log(response,"fetchSingleBasketData")
+
         if (response.detail === "Token has expired") {
           Cookies.set("login_token_ra", "");
           Cookies.set("username_ra", "");
@@ -201,7 +174,7 @@ export default function RaBasketDetails() {
           Cookies.set("login_token_ra", "");
           Cookies.set("username_ra", "");
 
-          navigate("/");
+          navigate("/ra");
         }
         if (response.data.basketList[0].rahStatus == "REJECTED" || "PENDING") {
           setKillSwitch(false);
@@ -212,13 +185,55 @@ export default function RaBasketDetails() {
 
         setStatus(response.data.basketList[0].rahStatus);
         setData(response.data.basketList[0]);
+       
+        let isApproved = false;
+        let isRejected = false;
+        let isPending = false;
+
+        // Filter for instruments with orderType "Entry" and store the reason
+        const entryInstruments = response.data.basketList[0].instrumentList.filter(
+          (instrument) => instrument.orderType === "Entry"
+        );
+
+        if (entryInstruments.length > 0) {
+          // Store the reason from the first Entry instrument
+          setReason(entryInstruments[0].reason); // Update this logic if you need to handle multiple reasons
+        }
+
+        // Setting the basket status based on the instruments
+        entryInstruments.forEach((instrument) => {
+          if (instrument.instrumentType === "Primary") {
+            if (instrument.raHeadStatus === "APPROVED") {
+              isApproved = true;
+            } else if (instrument.raHeadStatus === "") {
+              isPending = true;
+            } else if (instrument.raHeadStatus === "REJECTED") {
+              isRejected = true;
+            }
+          }
+        });
+
+        if (isRejected) {
+          setStatus("REJECTED");
+          setRejected(true);
+          setStatusUpdated(false);
+        } else if (isPending) {
+          setStatus("PENDING");
+          setRejected(false);
+        } else if (isApproved) {
+          setStatus("APPROVED");
+          setRejected(false);
+          setStatusUpdated(false);
+        }
+
+        console.log(reason, "Reason for Entry instruments"); // Log the reason
       } catch (error) {
         console.log(error, "Error");
       }
     };
 
     fetchData();
-  }, [id, token, dispatch]);
+  }, [id, token, dispatch,statusUpdated]);
 
   useEffect(() => {
     if (data) {
@@ -229,6 +244,8 @@ export default function RaBasketDetails() {
       setTotalFundRequired(total);
     }
   }, [data]);
+
+
 
   useEffect(() => {
     dispatch(fetchSymbols(token));
@@ -279,6 +296,17 @@ export default function RaBasketDetails() {
   };
 
   const calculateFundREquired = (instrumentListData) => {
+ 
+
+      const qty = instrumentListData.quantity;
+      const cmp = instrumentListData.currentPrice;
+      const fundRequired = Math.floor(cmp * qty);
+  
+      return fundRequired;
+ 
+  };
+
+  const calculateNewBasketFundREquired = (instrumentListData) => {
     const qty = instrumentListData.quantity;
     const cmp = instrumentListData.currentPrice;
     const fundRequired = Math.floor(cmp * qty);
@@ -346,13 +374,72 @@ export default function RaBasketDetails() {
       : []; // Default to an empty array if data.rationale is undefined
 
   // Clone the instruments data for editing
-  const handleEditClick = () => {
-    const instrumentsCopy = JSON.parse(JSON.stringify(currentInstruments));
-    setEditableInstruments(instrumentsCopy);
-    onOpen(); // Opens the Drawer instead of the Drawer
-  };
+  // const handleEditClick = () => {
 
+
+  //   const instrumentsCopy=currentInstruments.map((instrument)=>({
+  //     instrument:instrument.instrument,
+  //     securityId:instrument.securityId,
+  //     stopLoss:instrument.stopLoss,
+  //     takeProfit:instrument.takeProfit,
+  //     currentPrice:instrument.currentPrice,
+  //     quantity:instrument.quantity,
+  //     orderType:instrument.orderType || ""
+  //   }))
+  //   setEditableInstruments(instrumentsCopy);
+  //   onOpen(); // Opens the Drawer instead of the Drawer
+  // };
+
+  
   // Handle input change for editable fields
+ 
+ // Clone the instruments data for editing with necessary filters and remove duplicates
+
+
+
+ // Clone the instruments data for editing with necessary filters and remove duplicates
+const handleEditClick = () => {
+  // Step 1: Create a map to track the occurrences of each instrument
+  const instrumentCountMap = new Map();
+
+  // Count occurrences of each instrument
+  currentInstruments.forEach((instrument) => {
+    const instrumentName = instrument.instrument;
+    instrumentCountMap.set(instrumentName, (instrumentCountMap.get(instrumentName) || 0) + 1);
+  });
+
+  // Step 2: Filter out instruments that appear more than once (duplicates)
+  const nonDuplicateInstruments = currentInstruments.filter((instrument) => {
+    return instrumentCountMap.get(instrument.instrument) === 1;
+  });
+
+  // Step 3: Further filter by raHeadStatus being "APPROVED" and orderType being "Entry"
+  const approvedEntryInstruments = nonDuplicateInstruments.filter((instrument) => {
+    return instrument.raHeadStatus === "APPROVED" && instrument.orderType === "Entry";
+  });
+
+  // Step 4: Only set instruments if we have any valid ones left after filtering
+  if (approvedEntryInstruments.length > 0) {
+    const instrumentsCopy = approvedEntryInstruments.map((instrument) => ({
+      instrument: instrument.instrument,
+      securityId: instrument.securityId,
+      stopLoss: instrument.stopLoss,
+      takeProfit: instrument.takeProfit,
+      currentPrice: instrument.currentPrice,
+      quantity: instrument.quantity,
+      orderType: instrument.orderType || "", // default to empty string if orderType is missing
+    }));
+
+    setEditableInstruments(instrumentsCopy); // Set the filtered instruments
+  } else {
+    console.log("No valid instruments found; duplicates or criteria not met.");
+  }
+
+  // Open the Drawer (assuming onOpen is a function to open the drawer)
+  onOpen();
+};
+
+ 
   const handleInputChange = (index, field, value) => {
     const updatedInstruments = [...editableInstruments];
     updatedInstruments[index][field] = value;
@@ -361,81 +448,183 @@ export default function RaBasketDetails() {
 
   // Save changes function
   const handleSaveChanges = () => {
-    // You can now send editableInstruments to your API or update the state
-    // console.log("Updated Instruments: ", editableInstruments);
-    onClose();
+    // Compare editableInstruments with currentInstruments
+    const instrumentsToSend = editableInstruments.filter(editableInstrument => {
+      // Find the corresponding current instrument
+      const matchingInstrument = currentInstruments.find(
+        currentInstrument =>
+          currentInstrument.instrument === editableInstrument.instrument &&
+          currentInstrument.securityId === editableInstrument.securityId // Ensure we're comparing by instrument/securityId
+      );
+  
+      // If no matching instrument is found, or the orderType is different, send it
+      if (!matchingInstrument || matchingInstrument.orderType !== editableInstrument.orderType) {
+        return true; // Include in the data to be sent
+      }
+  
+      // If orderType matches, do not include the instrument in the data
+      return false;
+    });
+  
+    // Prepare the data to be sent
+    const data = {
+      instrumentList: instrumentsToSend
+    };
+  
+    console.log("Data to send:", data);
+  
+    // Dispatch the editBasketData action with the filtered instruments
+    dispatch(editBasketData(id, token, data))
+      .then((res) => {
+        console.log(res, "editBasketData");
+  
+        if (res.status === "success" && res.status_code === 200) {
+          toast({
+            title: "Error",
+            description: res.message,
+            status: "error",
+            duration: 3000,
+            isClosable: true,
+            position: "bottom",
+          });
+          setStatusUpdated(!statusUpdated)
+          onClose();
+        }
+
+        if (res.status === "failed" && res.status_code === 201) {
+          toast({
+            title: "Error",
+            description: res.message,
+            status: "error",
+            duration: 3000,
+            isClosable: true,
+            position: "bottom",
+          });
+          onClose();
+        }
+      })
+      .catch((error) => {
+        console.log(error, "editBasketData error");
+      });
   };
+  
 
   const handleDelete = (index) => {
     const updatedInstruments = [...editableInstruments];
-    updatedInstruments.splice(index, 1); // Remove the instrument at the specific index
-    setEditableInstruments(updatedInstruments); // Update the state
+
+    // Check if 'orderType' exists, if not, create it and set it to 'Exit'
+    updatedInstruments[index].orderType = "Exit";
+
+    // Update the state
+    setEditableInstruments(updatedInstruments);
   };
 
-  console.log(newInstrument, "newInstrument");
-  
-const handleAddInstrument = () => {
-  // Check if all required fields are filled
-  if (
-    !newInstrument.quantity ||
-    !newInstrument.stopLoss ||
-    !newInstrument.takeProfit
-  ) {
+console.log(currentInstruments,"currentInstruments")
+
+  const handleAddInstrument = () => {
+    // Check if all required fields are filled
+    if (
+      !newInstrument.quantity ||
+      !newInstrument.stopLoss ||
+      !newInstrument.takeProfit
+    ) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields before adding.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top-right",
+      });
+      return; // Do not proceed if any field is empty
+    }
+
+    // Check if the instrument already exists
+    const instrumentExists = editableInstruments.some(
+      (instrument) => instrument.instrument === newInstrument.instrument
+    );
+
+    if (instrumentExists) {
+      toast({
+        title: "Error",
+        description: "Script already exists.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top-right",
+      });
+      return; // Do not proceed if the instrument already exists
+    }
+
+    // Check if takeProfit is greater than currentPrice and stopLoss is less than currentPrice
+    if (newInstrument.takeProfit <= newInstrument.currentPrice) {
+      toast({
+        title: "Error",
+        description: "Take Profit must be greater than the current price.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top-right",
+      });
+      return; // Do not proceed if takeProfit is not valid
+    }
+
+    if (newInstrument.stopLoss >= newInstrument.currentPrice) {
+      toast({
+        title: "Error",
+        description: "Stop Loss must be less than the current price.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top-right",
+      });
+      return; // Do not proceed if stopLoss is not valid
+    }
+
+    // Create a new object with instrument details
+    const {
+      quantity,
+      stopLoss,
+      takeProfit,
+      securityId,
+      currentPrice,
+      orderType,
+      instrument,
+    } = newInstrument;
+    const instrumentToAdd = {
+      quantity,
+      stopLoss,
+      takeProfit,
+      securityId,
+      currentPrice,
+      instrument,
+      orderType
+    };
+
+    setEditableInstruments([...editableInstruments, instrumentToAdd]);
+    setNewInstrument({
+      name: "",
+      instrument: "",
+      orderType:"Entry",
+      quantity: 0,
+      stopLoss: 0,
+      takeProfit: 0,
+      securityId: 0,
+      currentPrice: 0,
+    });
+    setSearchTerm("");
+    onAddClose(); // Close the add form
+
+    // Show success toast
     toast({
-      title: "Error",
-      description: "Please fill in all fields before adding.",
-      status: "error",
+      title: "Instrument Added",
+      description: `${newInstrument.name} was successfully added.`,
+      status: "success",
       duration: 3000,
       isClosable: true,
       position: "top-right",
     });
-    return; // Do not proceed if any field is empty
-  }
-
-  // Check if the instrument already exists
-  const instrumentExists = editableInstruments.some(
-    (instrument) => instrument.instrument === newInstrument.instrument
-  );
-
-  if (instrumentExists) {
-    toast({
-      title: "Error",
-      description: "Script already exists.",
-      status: "error",
-      duration: 3000,
-      isClosable: true,
-      position: "top-right",
-    });
-    return; // Do not proceed if the instrument already exists
-  }
-
-  // Create a new object without name and instrument
-  const { quantity, stopLoss, takeProfit, securityId, currentPrice,instrument } = newInstrument;
-  const instrumentToAdd = { quantity, stopLoss, takeProfit, securityId, currentPrice,instrument };
-
-  setEditableInstruments([...editableInstruments, instrumentToAdd]);
-  setNewInstrument({
-    name: "",
-    instrument: "",
-    quantity: 0,
-    stopLoss: 0,
-    takeProfit: 0,
-    securityId: 0,
-    currentPrice: 0,
-  });
-  setSearchTerm("");
-  onAddClose(); // Close the add form
-
-  // Show success toast
-  toast({
-    title: "Instrument Added",
-    description: `${newInstrument.name} was successfully added.`,
-    status: "success",
-    duration: 3000,
-    isClosable: true,
-    position: "top-right",
-  });
-};
+  };
 
   const isFormValid = () => {
     return (
@@ -501,14 +690,17 @@ const handleAddInstrument = () => {
             <TabList>
               <Tab fontWeight="bold">Compositions</Tab>
               {/* <Tab fontWeight="bold">Client</Tab>  */}
-              <Button
-                colorScheme="teal"
-                variant="outline"
-                ml={6}
-                onClick={handleEditClick}
-              >
-                Edit
-              </Button>
+              {status=="APPROVED"?(
+                  <Button
+                  colorScheme="teal"
+                  variant="outline"
+                  ml={6}
+                  onClick={handleEditClick}
+                >
+                  Edit
+                </Button>
+              ):""}
+            
             </TabList>
             <TabPanels>
               <TabPanel>
@@ -714,6 +906,50 @@ const handleAddInstrument = () => {
 
             <DrawerBody px="4" py="4">
               <Box mb="4">
+                <Box display={"flex"}>
+                  <Box display={"flex"}>
+                    <Text
+                      fontSize="md"
+                      fontWeight="medium"
+                      ml={2}
+                      mb="2"
+                      color="gray.600"
+                    >
+                      Basket Value
+                    </Text>
+                    <Text
+                      fontSize="md"
+                      fontWeight="medium"
+                      ml={2}
+                      mb="2"
+                      color="gray.600"
+                    >
+                      {totalFundRequired}
+                    </Text>
+                  </Box>
+
+                  <Box display={"flex"}>
+                    <Text
+                      fontSize="md"
+                      fontWeight="lg"
+                      ml={2}
+                      mb="2"
+                      color="black.600"
+                    >
+                      New Basket Value
+                    </Text>
+                    <Text
+                      fontSize="md"
+                      fontWeight="medium"
+                      ml={2}
+                      mb="2"
+                      color="gray.600"
+                    >
+                      {newBasketValue}
+                    </Text>
+                  </Box>
+                </Box>
+
                 <Flex>
                   <Text
                     fontSize="md"
@@ -723,6 +959,7 @@ const handleAddInstrument = () => {
                   >
                     Instrument Details
                   </Text>
+
                   <Spacer />
                   <Button
                     colorScheme="green"
@@ -741,6 +978,7 @@ const handleAddInstrument = () => {
                       <Th>Script Name</Th>
                       <Th textAlign="center">CMP</Th>
                       <Th textAlign="center">QTY</Th>
+                      <Th textAlign="center">Fund Req</Th>
                       <Th textAlign="center">Stop Loss</Th>
                       <Th textAlign="center">Take Profit</Th>
                       <Th textAlign="center">Exit</Th>
@@ -754,32 +992,13 @@ const handleAddInstrument = () => {
                         <Td textAlign="center">
                           {instrument.currentPrice.toFixed(2)}
                         </Td>
+                        <Td textAlign="center">{instrument.quantity}</Td>
                         <Td textAlign="center">
-                        {instrument.quantity}
-                          {/* <Input
-                         
-                            value={instrument.quantity}
-                            onChange={(e) =>
-                              handleInputChange(
-                                index,
-                                "quantity",
-                                e.target.value
-                              )
-                            }
-                            size="md" // Changed to medium size
-                            borderColor="gray.300"
-                            borderRadius="md"
-                            width="100%" // Set width to full
-                            _focus={{ borderColor: "blue.400" }}
-                            py="2" // Reduced padding for a smaller height
-                            textAlign="center" // Center align text
-                          /> */}
-
+                          {calculateNewBasketFundREquired(instrument)}
                         </Td>
                         <Td textAlign="center">
                           <Input
                             value={instrument.stopLoss}
-                            
                             onChange={(e) =>
                               handleInputChange(
                                 index,
@@ -815,7 +1034,7 @@ const handleAddInstrument = () => {
                             textAlign="center" // Center align text
                           />
                         </Td>
-                        <Td textAlign="center">
+                        {/* <Td textAlign="center">
                           <Button
                             leftIcon={<DeleteIcon />}
                             colorScheme="red"
@@ -825,6 +1044,24 @@ const handleAddInstrument = () => {
                           >
                             Exit
                           </Button>
+                        </Td> */}
+                        <Td textAlign="center">
+                          {instrument.orderType !== "Exit" ? (
+                            <Button
+                              leftIcon={<DeleteIcon />}
+                              colorScheme="red"
+                              size="sm"
+                              _hover={{
+                                bg: "red.100",
+                                transform: "scale(1.05)",
+                              }}
+                              onClick={() => handleDelete(index)}
+                            >
+                              Exit
+                            </Button>
+                          ) : (
+                            <Text color="red.500">Exiting...</Text>
+                          )}
                         </Td>
                       </Tr>
                     ))}
@@ -1167,7 +1404,7 @@ const handleAddInstrument = () => {
                   <strong>Research Head Approval:</strong>
                 </Td>
                 <Td>
-                  {(!data.rahStatus || data.rahStatus === "PENDING") && (
+                  {(status === "PENDING") && (
                     <Text
                       bg="gray.200"
                       p="1"
@@ -1181,7 +1418,7 @@ const handleAddInstrument = () => {
                     </Text>
                   )}
 
-                  {data.rahStatus === "APPROVED" && (
+                  {status === "APPROVED" && (
                     <Text
                       bg="green.200"
                       p="1"
@@ -1194,7 +1431,7 @@ const handleAddInstrument = () => {
                       Approved
                     </Text>
                   )}
-                  {data.rahStatus === "REJECTED" && (
+                  {status === "REJECTED" && (
                     <Text
                       bg="red.200"
                       p="1"
@@ -1216,8 +1453,8 @@ const handleAddInstrument = () => {
                   </Td>
                   <Td>
                     <Text fontSize="sm">
-                      {data.rejectedReason !== null
-                        ? data.rejectedReason
+                      {reason !== ""
+                        ? reason
                         : "Reason Is Not Mentioned"}
                     </Text>
                   </Td>

@@ -253,7 +253,7 @@ console.log(response.data.data.basketList,"fetchUnderlyingIndex")
     // Handle errors by dispatching failure action
     dispatch({
       type: UNDERLYING_INDEX_FAILURE,
-      
+
       payload: error.response?.data?.message || error.message, // Capture the error message
     });
   }

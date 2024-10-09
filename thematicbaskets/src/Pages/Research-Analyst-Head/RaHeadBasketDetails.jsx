@@ -30,61 +30,105 @@ import {
 } from "@chakra-ui/react";
 import { useNavigate, useParams } from "react-router-dom";
 // import Navbar from "../../Cenrum-ResearchAnalyst-Head/Components/Navbar";
-import Navbar from "../../Components/RasearchAnalyst-Head/Navbar"
+import Navbar from "../../Components/RasearchAnalyst-Head/Navbar";
 import Cookies from "js-cookie";
 import axios from "axios";
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
-import { useDispatch,useSelector } from "react-redux";
-import { fetchSingleBasketData, updateBasketData } from "../../Redux/basketReducer/action";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchSingleBasketData,
+  makeBasketDecision,
+} from "../../Redux/basketReducer/action";
 import { ArrowBackIcon } from "@chakra-ui/icons";
 import { fetchSymbols } from "../../Redux/symbolReducer/action";
-
 
 export default function RaHeadBasketDetails() {
   const [data, setData] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [status, setStatus] = useState("");
+
   const [activeTab, setActiveTab] = useState(0);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [totalFundRequired, setTotalFundRequired] = useState(0);
+
   const [researchHeadMessage, setresearchHeadMessage] = useState("");
   const [updateToggle, setUpdateToggle] = useState(false);
-  const [statusUpdated,setStatusUpdated]=useState(true)
-  const [rejected,setRejected]=useState(false);
+  const [statusUpdated, setStatusUpdated] = useState(true);
+  const [rejected, setRejected] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const toast = useToast();
 
   let { id } = useParams();
   let token = Cookies.get("login_token_rh");
-
+  console.log(token, "Token");
   const Symbols = useSelector((store) => store.symbolsReducer.symbols);
-
 
   useEffect(() => {
     dispatch(fetchSingleBasketData(id, token))
       .then((res) => {
-  
-        if (res.message == "You do not Have permission to access the data") {
-          Cookies.set("login_token_rh","")
-          Cookies.set("username_rh","")
-          navigate('/rahead');
+        console.log(res, "fetchSingleBasketData");
+
+        // Token expiration check
+        if (res.detail === "Token has expired") {
+          Cookies.set("login_token_rh", "");
+          Cookies.set("username_rh", "");
+          navigate("/rahead");
         }
-        if(res.rahStatus=="REJECTED"||res.rahStatus=="APPROVED"){
-          setStatusUpdated(false)
+
+        // Permission error handling
+        if (res.message === "You do not Have permission to access the data") {
+          Cookies.set("login_token_rh", "");
+          Cookies.set("username_rh", "");
+          // navigate('/rahead');
         }
-        if(res.rahStatus=="REJECTED"){
-          setRejected(true)
+
+        // Basket status logic
+        const basket = res.data.basketList[0]; // Assuming the basket list is returned in the first index
+        setData(basket);
+
+        let isApproved = false;
+        let isRejected = false;
+        let isPending = false;
+
+        // Check instruments of type "Primary"
+        basket.instrumentList.forEach((instrument) => {
+          if (instrument.instrumentType === "Primary") {
+            if (instrument.raHeadStatus === "APPROVED") {
+              isApproved = true;
+            } else if (instrument.raHeadStatus === "") {
+              isPending = true;
+            } else if (instrument.raHeadStatus === "REJECTED") {
+              isRejected = true;
+            }
+          }
+        });
+
+        // Setting the basket status based on the instruments
+        if (isRejected) {
+          setStatus("REJECTED");
+
+          setRejected(true);
+          setStatusUpdated(false);
+        } else if (isPending) {
+          setStatus("PENDING");
+          setRejected(false);
+        } else if (isApproved) {
+          setStatus("APPROVED");
+          setRejected(false);
+          setStatusUpdated(false);
         }
-        setStatus(res.rahStatus);
-       
-        setData(res)})
+      })
       .catch((error) => console.log(error));
   }, [id, token, updateToggle]);
 
   useEffect(() => {
     if (data) {
-      const total = instruments.reduce((acc, instrument) => acc + calculateFundREquired(instrument), 0);
+      const total = instruments.reduce(
+        (acc, instrument) => acc + calculateFundREquired(instrument),
+        0
+      );
       setTotalFundRequired(total);
     }
   }, [data]);
@@ -114,7 +158,6 @@ export default function RaHeadBasketDetails() {
   const endIndex = startIndex + itemsPerPage;
   const currentInstruments = instruments.slice(startIndex, endIndex);
 
-
   const handleReject = () => {
     setShowRejectModal(true);
   };
@@ -124,198 +167,242 @@ export default function RaHeadBasketDetails() {
     setresearchHeadMessage("");
   };
 
+  // Handle Approve Click (New)
+  const handleApprove = () => {
+    setShowApproveModal(true);
+  };
+
+  // Handle Approve Modal Close (New)
+  const handleCloseApproveModal = () => {
+    setShowApproveModal(false);
+    setresearchHeadMessage("");
+  };
 
   const handleConfirmReject = () => {
-   
-   
-    if(researchHeadMessage!==""){
+    if (researchHeadMessage !== "") {
       let decision = "REJECTED";
-   
-      dispatch(updateBasketData(decision, id, token,researchHeadMessage))
-      .then((res) => {
-        if (res.status === "success") {
-          // setStatusUpdated(false)
+
+      dispatch(makeBasketDecision(decision, id, token, researchHeadMessage))
+        .then((res) => {
+          if (res.status === "success") {
+            // setStatusUpdated(false)
+            toast({
+              title: "Basket data has been rejected.",
+              position: "bottom",
+              status: "error",
+              duration: 2000,
+              isClosable: true,
+            });
+          } else {
+            toast({
+              title: res.message,
+              position: "bottom",
+              status: "error",
+              duration: 2000,
+              isClosable: true,
+            });
+          }
+          setUpdateToggle(!updateToggle);
+        })
+        .catch((error) => {
           toast({
-            title: "Basket data has been rejected.",
+            title: "An error occurred.",
             position: "bottom",
             status: "error",
             duration: 2000,
             isClosable: true,
           });
-        } else {
-          toast({
-            title: res.message,
-            position: "bottom",
-            status: "error",
-            duration: 2000,
-            isClosable: true,
-          });
-        }
-        setUpdateToggle(!updateToggle);
-      })
-      .catch((error) => {
-        toast({
-          title: "An error occurred.",
-          position: "bottom",
-          status: "error",
-          duration: 2000,
-          isClosable: true,
+          console.log(error);
         });
-        console.log(error);
-      });
-    setShowRejectModal(false);
-    setresearchHeadMessage(""); 
+      setShowRejectModal(false);
+      setresearchHeadMessage("");
     }
-   
   };
 
-  const handleApproved = () => {
-    let decision = "APPROVED";
-    dispatch(updateBasketData(decision, id, token,researchHeadMessage))
-      .then((res) => {
+  // Handle Confirm Approve (New)
+  const handleConfirmApprove = () => {
+    if (researchHeadMessage !== "") {
+      let decision = "APPROVED";
 
-        if (res.status === "success") {
-          // setStatusUpdated(false)
+      dispatch(makeBasketDecision(decision, id, token, researchHeadMessage))
+        .then((res) => {
+          console.log(res, "makeBasketDecision");
+          if (res.status === "success") {
+            toast({
+              title: "Basket has been approved.",
+              position: "bottom",
+              status: "success",
+              duration: 2000,
+              isClosable: true,
+            });
+          } else {
+            toast({
+              title: res.message,
+              position: "bottom",
+              status: "error",
+              duration: 2000,
+              isClosable: true,
+            });
+          }
+          setUpdateToggle(!updateToggle);
+        })
+        .catch((error) => {
           toast({
-            title: "Basket data has been approved.",
-            position: "bottom",
-            status: "success",
-            duration: 2000,
-            isClosable: true,
-          });
-        } else {
-          toast({
-            title: res.message,
+            title: "An error occurred.",
             position: "bottom",
             status: "error",
             duration: 2000,
             isClosable: true,
           });
-        }
-        setUpdateToggle(!updateToggle);
-      })
-      .catch((error) => {
-        toast({
-          title: "An error occurred.",
-          position: "bottom",
-          status: "error",
-          duration: 2000,
-          isClosable: true,
+          console.log(error);
         });
-        console.log(error);
-      });
+      setShowApproveModal(false);
+      setresearchHeadMessage(""); // Reset the message
+    }
   };
 
+  // const handleApproved = () => {
+  //   let decision = "APPROVED";
+  //   dispatch(updateBasketData(decision, id, token,researchHeadMessage))
+  //     .then((res) => {
 
-  const calculateQuantile=(instrumentListData)=>{
+  //       if (res.status === "success") {
+  //         // setStatusUpdated(false)
+  //         toast({
+  //           title: "Basket data has been approved.",
+  //           position: "bottom",
+  //           status: "success",
+  //           duration: 2000,
+  //           isClosable: true,
+  //         });
+  //       } else {
+  //         toast({
+  //           title: res.message,
+  //           position: "bottom",
+  //           status: "error",
+  //           duration: 2000,
+  //           isClosable: true,
+  //         });
+  //       }
+  //       setUpdateToggle(!updateToggle);
+  //     })
+  //     .catch((error) => {
+  //       toast({
+  //         title: "An error occurred.",
+  //         position: "bottom",
+  //         status: "error",
+  //         duration: 2000,
+  //         isClosable: true,
+  //       });
+  //       console.log(error);
+  //     });
+  // };
+
+  const calculateQuantile = (instrumentListData) => {
     const qty = instrumentListData.quantity;
     const stopLoss = instrumentListData.stopLoss;
     const takeProfit = instrumentListData.takeProfit;
-    const cmp = instrumentListData.cmp;
+    const cmp = instrumentListData.currentPrice;
     const quantile = (cmp - stopLoss) / (takeProfit - stopLoss);
     // Convert quantile to percentage
     const quantilePercentage = quantile * 100;
-  
-    let Result=Math.floor(quantilePercentage)
- 
-  return`${Result}%`
-    }
-  
-    const calculateFundREquired = (instrumentListData) => {
-      const qty = instrumentListData.quantity;
-      const cmp = instrumentListData.cmp;
-      const fundRequired = Math.floor(cmp * qty); 
-      return fundRequired;
-    };
-    
-    const InstrumentRow = ({ instrument }) => {
-      const quantileValue = parseFloat(calculateQuantile(instrument));
-    
-      let badgeText;
-      let badgeColor;
-    
-      if (quantileValue > 100) {
-        badgeText = "Book Profit";
-        badgeColor = "green";
-      } else if (quantileValue > 0 && quantileValue <= 100) {
-        badgeText = "Intrade";
-        badgeColor = "green";
-      } else {
-        badgeText = "Stop Loss";
-        badgeColor = "red";
-      }
-    
-      return (
-        <Badge colorScheme={badgeColor}>
-          {badgeText}
-        </Badge>
-      );
-    };
 
-    const handleSymbolName = (symbol) => {
- 
-      if (symbol !== "" && symbol !== null) {
-        let filterSymbolName = Symbols.filter((ele) => ele.symbol == symbol);
-        let result = filterSymbolName[0];
-  
-        if (result !== undefined) {
-          return result.name;
-        }
-       
-      }
-  
-      return symbol; // Return an empty string if the symbol is not found or invalid
-    };
-  
-    const handleUpsidePotential = (instrumentListData) => {
-    
-      let cmp = Number(instrumentListData.cmp);
-      let takeProfit = Number(instrumentListData.takeProfit);
-    
-    
-      let upsidePotential = ((takeProfit - cmp) / cmp) * 100;
-    
-     
-      let upsidePotentialPercentage = Math.floor(upsidePotential);
-      
-      if(upsidePotentialPercentage<0){
-        return `Target Achieved`
-      }
-    return `${upsidePotentialPercentage}%`
-     
-    };
+    let Result = Math.floor(quantilePercentage);
 
-    const rationalLines=data.rational.split('\n').map(line=>line.trim()).filter(line=>line.length>0)
-    // console.log(rationalLines,"rational Lines")
-    const handleBackClick=()=>{
-      navigate("/rahead/dashboard")
+    return `${Result}%`;
+  };
+
+  const calculateFundREquired = (instrumentListData) => {
+    const qty = instrumentListData.quantity;
+    const cmp = instrumentListData.currentPrice;
+    const fundRequired = Math.floor(cmp * qty);
+    return fundRequired;
+  };
+
+  const InstrumentRow = ({ instrument }) => {
+    const quantileValue = parseFloat(calculateQuantile(instrument));
+
+    let badgeText;
+    let badgeColor;
+
+    if (quantileValue > 100) {
+      badgeText = "Book Profit";
+      badgeColor = "green";
+    } else if (quantileValue > 0 && quantileValue <= 100) {
+      badgeText = "Intrade";
+      badgeColor = "green";
+    } else {
+      badgeText = "Stop Loss";
+      badgeColor = "red";
     }
+
+    return <Badge colorScheme={badgeColor}>{badgeText}</Badge>;
+  };
+
+  const handleSymbolName = (symbol) => {
+    if (symbol !== "" && symbol !== null) {
+      let filterSymbolName = Symbols.filter((ele) => ele.instrument == symbol);
+      let result = filterSymbolName[0];
+
+      if (result !== undefined) {
+        return result.name;
+      }
+    }
+
+    return symbol; // Return an empty string if the symbol is not found or invalid
+  };
+
+  const handleUpsidePotential = (instrumentListData) => {
+    let cmp = Number(instrumentListData.currentPrice);
+    let takeProfit = Number(instrumentListData.takeProfit);
+
+    let upsidePotential = ((takeProfit - cmp) / cmp) * 100;
+
+    let upsidePotentialPercentage = Math.floor(upsidePotential);
+
+    if (upsidePotentialPercentage < 0) {
+      return `Target Achieved`;
+    }
+    return `${upsidePotentialPercentage}%`;
+  };
+
+  const rationalLines =
+    data && data.rationale
+      ? data.rationale
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0)
+      : []; // Default to an empty array if data.rationale is undefined
+
+  const handleBackClick = () => {
+    navigate("/rahead/dashboard");
+  };
   return (
     <Box>
       <Navbar />
 
       <Flex align="center" justify="flex-start" mt={2} ml={4}>
-      <IconButton
-        icon={<ArrowBackIcon boxSize={8} />}
-        aria-label="Go back"
-        onClick={handleBackClick}
-        size="lg"
-        isRound
-        bgColor="#244c9c"
-        color="white"
-        _hover={{ 
-          transform: "scale(1.2)",
-          boxShadow: "0 8px 15px rgba(0, 0, 0, 0.3)",
-          bgColor: "#1a3a6b"  // Darker shade for hover
-        }}
-        transition="all 0.3s ease"
-        boxShadow="0 4px 6px rgba(0, 0, 0, 0.2)"
-        _active={{
-          transform: "scale(0.95)",
-          boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)"
-        }}
-      />
-    </Flex>
+        <IconButton
+          icon={<ArrowBackIcon boxSize={8} />}
+          aria-label="Go back"
+          onClick={handleBackClick}
+          size="lg"
+          isRound
+          bgColor="#244c9c"
+          color="white"
+          _hover={{
+            transform: "scale(1.2)",
+            boxShadow: "0 8px 15px rgba(0, 0, 0, 0.3)",
+            bgColor: "#1a3a6b", // Darker shade for hover
+          }}
+          transition="all 0.3s ease"
+          boxShadow="0 4px 6px rgba(0, 0, 0, 0.2)"
+          _active={{
+            transform: "scale(0.95)",
+            boxShadow: "0 2px 4px rgba(0, 0, 0, 0.2)",
+          }}
+        />
+      </Flex>
 
       <Flex
         direction={{ base: "column", md: "column", lg: "row" }}
@@ -341,22 +428,42 @@ export default function RaHeadBasketDetails() {
                 <Table variant="simple" colorScheme="teal" size="sm">
                   <Thead>
                     <Tr>
-                      <Th  fontSize="sm">#</Th>
-                      <Th  textTransform="capitalize"  fontSize="sm">Script Name</Th>
+                      <Th fontSize="sm">#</Th>
+                      <Th textTransform="capitalize" fontSize="sm">
+                        Script Name
+                      </Th>
                       <Th
                         fontSize="sm"
                         fontWeight="bold"
                         textTransform="capitalize"
                       >
-                          Upside Potential
+                        Upside Potential
+                      </Th>
+                      <Th textTransform="capitalize" fontSize="sm">
+                        QTY
+                      </Th>
+                      {status == "APPROVED" ? (
+                        <Th textTransform="capitalize" fontSize="sm">
+                          Status
                         </Th>
-                      <Th  textTransform="capitalize"  fontSize="sm">QTY</Th>
-                      {status =="APPROVED" ? <Th  textTransform="capitalize"  fontSize="sm">Status</Th> : ""}
-                      <Th  textTransform="capitalize"  fontSize="sm">Stop Loss</Th>
-                      <Th  textTransform="capitalize"  fontSize="sm">CMP</Th>
-                      <Th  textTransform="capitalize"  fontSize="sm">Take Profit</Th>
-                      <Th  textTransform="capitalize"  fontSize="sm">Quantile</Th>
-                      <Th  textTransform="capitalize"  fontSize="sm">Fund Req</Th>
+                      ) : (
+                        ""
+                      )}
+                      <Th textTransform="capitalize" fontSize="sm">
+                        Stop Loss
+                      </Th>
+                      <Th textTransform="capitalize" fontSize="sm">
+                        CMP
+                      </Th>
+                      <Th textTransform="capitalize" fontSize="sm">
+                        Take Profit
+                      </Th>
+                      <Th textTransform="capitalize" fontSize="sm">
+                        Quantile
+                      </Th>
+                      <Th textTransform="capitalize" fontSize="sm">
+                        Fund Req
+                      </Th>
                     </Tr>
                   </Thead>
                   <Tbody>
@@ -369,21 +476,24 @@ export default function RaHeadBasketDetails() {
                           whiteSpace="nowrap"
                           verticalAlign="middle"
                         >
-                          {handleSymbolName(instrument.name)}
+                          {handleSymbolName(instrument.instrument)}
                         </Td>
-                          <Td fontSize="sm" verticalAlign="middle">
-                          {handleUpsidePotential(instrument)<1?"Target Achieved":handleUpsidePotential(instrument)}
+                        <Td fontSize="sm" verticalAlign="middle">
+                          {handleUpsidePotential(instrument) < 1
+                            ? "Target Achieved"
+                            : handleUpsidePotential(instrument)}
                         </Td>
 
                         <Td fontSize={{ base: "sm", md: "md" }}>
                           {instrument.quantity}
                         </Td>
-                        {status =="APPROVED" && <Td>
-                          <InstrumentRow instrument={instrument} />
-                           
-                          </Td>}
+                        {status == "APPROVED" && (
+                          <Td>
+                            <InstrumentRow instrument={instrument} />
+                          </Td>
+                        )}
                         <Td>{instrument.stopLoss}</Td>
-                        <Td>{instrument.cmp}</Td>
+                        <Td>{instrument.currentPrice}</Td>
                         <Td>{instrument.takeProfit}</Td>
                         <Td>{calculateQuantile(instrument)}</Td>
                         <Td>{calculateFundREquired(instrument)}</Td>
@@ -391,62 +501,70 @@ export default function RaHeadBasketDetails() {
                     ))}
                   </Tbody>
                 </Table>
-                {currentInstruments.length >= 10||totalPages>1?(   <Flex justifyContent="space-between" mt="4">
-                  {currentPage === 1 ? (
-                    <Button
-                      size="sm"
-                      colorScheme="gray"
-                      leftIcon={<FaArrowLeft />}
-                    >
-                      Previous
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      size="sm"
-                      colorScheme="blue"
-                      leftIcon={<FaArrowLeft />}
-                    >
-                      Previous
-                    </Button>
-                  )}
+                {currentInstruments.length >= 10 || totalPages > 1 ? (
+                  <Flex justifyContent="space-between" mt="4">
+                    {currentPage === 1 ? (
+                      <Button
+                        size="sm"
+                        colorScheme="gray"
+                        leftIcon={<FaArrowLeft />}
+                      >
+                        Previous
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        size="sm"
+                        colorScheme="blue"
+                        leftIcon={<FaArrowLeft />}
+                      >
+                        Previous
+                      </Button>
+                    )}
 
-                  <Text>
-                    Page {currentPage} of {totalPages}
-                  </Text>
-                  {currentPage === totalPages ? (
-                    <Button
-                      size="sm"
-                      colorScheme="gray"
-                      rightIcon={<FaArrowRight />}
-                    >
-                      Next
+                    <Text>
+                      Page {currentPage} of {totalPages}
+                    </Text>
+                    {currentPage === totalPages ? (
+                      <Button
+                        size="sm"
+                        colorScheme="gray"
+                        rightIcon={<FaArrowRight />}
+                      >
+                        Next
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        size="sm"
+                        colorScheme="blue"
+                        rightIcon={<FaArrowRight />}
+                      >
+                        Next
+                      </Button>
+                    )}
+                  </Flex>
+                ) : (
+                  ""
+                )}
+
+                {statusUpdated ? (
+                  <Box
+                    display={"flex"}
+                    justifyContent={"space-evenly"}
+                    marginTop={"5"}
+                  >
+                    {}
+                    <Button colorScheme="green" onClick={handleApprove}>
+                      Approve
                     </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      size="sm"
-                      colorScheme="blue"
-                      rightIcon={<FaArrowRight />}
-                    >
-                      Next
+                    <Button colorScheme="red" onClick={handleReject}>
+                      Reject
                     </Button>
-                  )}
-                </Flex>):""}
-             
-                {statusUpdated?( <Box
-                  display={"flex"}
-                  justifyContent={"space-evenly"}
-                  marginTop={"5"}
-                >{}
-                  <Button colorScheme="green" onClick={handleApproved}>
-                    Approve
-                  </Button>
-                  <Button colorScheme="red" onClick={handleReject}>
-                    Reject
-                  </Button>
-                </Box>):""}
-               
+                  </Box>
+                ) : (
+                  ""
+                )}
               </TabPanel>
               <TabPanel>
                 <Text>Client data will be displayed here.</Text>
@@ -484,20 +602,19 @@ export default function RaHeadBasketDetails() {
                   <strong>Basket Rational:</strong>
                 </Td>
                 <Td>
-          {rationalLines.map((line, index) => (
-            <Box key={index} display="flex" mb={4}>
-              {/* <Text as="span" mr={2} fontSize="md" color="gray.700"> */}
-              <Heading as='h5' size='sm' mr={2}>
-
-                •
-              </Heading>
-              {/* </Text> */}
-              <Text fontSize="sm" color="gray.700">
-                {line}
-              </Text>
-            </Box>
-          ))}
-        </Td>
+                  {rationalLines.map((line, index) => (
+                    <Box key={index} display="flex" mb={4}>
+                      {/* <Text as="span" mr={2} fontSize="md" color="gray.700"> */}
+                      <Heading as="h5" size="sm" mr={2}>
+                        •
+                      </Heading>
+                      {/* </Text> */}
+                      <Text fontSize="sm" color="gray.700">
+                        {line}
+                      </Text>
+                    </Box>
+                  ))}
+                </Td>
               </Tr>
               <Tr>
                 <Td>
@@ -521,7 +638,7 @@ export default function RaHeadBasketDetails() {
                 <Td>
                   <strong>Exchange Type:</strong>
                 </Td>
-                <Td fontFamily={"helvetica"} >{data.exchangeType}</Td>
+                <Td fontFamily={"helvetica"}>{data.exchange}</Td>
               </Tr>
               <Tr>
                 <Td>
@@ -534,7 +651,7 @@ export default function RaHeadBasketDetails() {
                   <strong>Research Head Approval:</strong>
                 </Td>
                 <Td>
-                  {data.rahStatus === "PENDING" && (
+                  {status === "PENDING" && (
                     <Text
                       bg="gray.200"
                       p="1"
@@ -546,7 +663,7 @@ export default function RaHeadBasketDetails() {
                       Pending
                     </Text>
                   )}
-                  {data.rahStatus === "APPROVED" && (
+                  {status === "APPROVED" && (
                     <Text
                       bg="green.200"
                       p="1"
@@ -558,7 +675,7 @@ export default function RaHeadBasketDetails() {
                       Yes
                     </Text>
                   )}
-                  {data.rahStatus === "REJECTED" && (
+                  {status === "REJECTED" && (
                     <Text
                       bg="red.200"
                       p="1"
@@ -573,12 +690,16 @@ export default function RaHeadBasketDetails() {
                 </Td>
               </Tr>
 
-              {rejected?  <Tr>
-                <Td>
-                  <strong>Rejection Reason:</strong>
-                </Td>
-                <Td>{data.rejectedReason}</Td>
-              </Tr>:""}
+              {rejected ? (
+                <Tr>
+                  <Td>
+                    <strong>Rejection Reason:</strong>
+                  </Td>
+                  <Td>{data.rejectedReason}</Td>
+                </Tr>
+              ) : (
+                ""
+              )}
             </Tbody>
           </Table>
         </Box>
@@ -586,36 +707,75 @@ export default function RaHeadBasketDetails() {
 
       {/* Rejection Reason Modal */}
       <Modal isOpen={showRejectModal} onClose={handleCloseRejectModal}>
-  <ModalOverlay />
-  <ModalContent>
-    <ModalHeader>Provide Reason for Rejection</ModalHeader>
-    <ModalCloseButton />
-    <ModalBody>
-      <Textarea
-        placeholder="Enter reason for rejection..."
-        rows={4}
-        value={researchHeadMessage}
-        onChange={(e) => setresearchHeadMessage(e.target.value)}
-        width="100%"
-        resize="none"
-        border="1px solid #5274ac"
-        _focus={{ borderColor: "#5274ac", boxShadow: "0 0 0 1px #5274ac" }}
-      />
-    </ModalBody>
-    <ModalFooter>
-      <Button colorScheme="red" mr={3} onClick={handleCloseRejectModal}>
-        Close
-      </Button>
-      <Button
-        colorScheme="blue"
-        onClick={handleConfirmReject}
-        disabled={!researchHeadMessage}
-      >
-        Confirm Reject
-      </Button>
-    </ModalFooter>
-  </ModalContent>
-</Modal>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Provide Reason for Rejection</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Textarea
+              placeholder="Enter reason for rejection..."
+              rows={4}
+              value={researchHeadMessage}
+              onChange={(e) => setresearchHeadMessage(e.target.value)}
+              width="100%"
+              resize="none"
+              border="1px solid #5274ac"
+              _focus={{
+                borderColor: "#5274ac",
+                boxShadow: "0 0 0 1px #5274ac",
+              }}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="red" mr={3} onClick={handleCloseRejectModal}>
+              Close
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleConfirmReject}
+              disabled={!researchHeadMessage}
+            >
+              Confirm Reject
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* // Approval Reason Modal (New Modal for Approval) */}
+      <Modal isOpen={showApproveModal} onClose={handleCloseApproveModal}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Provide Reason for Approval</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <Textarea
+              placeholder="Enter reason for approval..."
+              rows={4}
+              value={researchHeadMessage}
+              onChange={(e) => setresearchHeadMessage(e.target.value)}
+              width="100%"
+              resize="none"
+              border="1px solid #5274ac"
+              _focus={{
+                borderColor: "#5274ac",
+                boxShadow: "0 0 0 1px #5274ac",
+              }}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="red" mr={3} onClick={handleCloseApproveModal}>
+              Close
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleConfirmApprove}
+              disabled={!researchHeadMessage}
+            >
+              Confirm Approve
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }

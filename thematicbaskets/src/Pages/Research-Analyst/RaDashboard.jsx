@@ -38,8 +38,11 @@ export default function RaDashboard() {
   let token = Cookies.get("login_token_ra");
   console.log(token, "token token");
   let { baskets, loading } = useSelector((store) => store.basketReducer);
-  console.log(baskets,"Baskets")
+  console.log(baskets, "Baskets");
   const [filter, setFilter] = useState("");
+  const [anyChanges, setAnyChanges] = useState("");
+  const [editableBaskets, setEditableBaskets] = useState({});
+
   const [filterData, setFilterData] = useState([]);
   const toast = useToast();
   const dispatch = useDispatch();
@@ -97,39 +100,47 @@ export default function RaDashboard() {
     const currentHours = currentDate.getHours();
     const currentMinutes = currentDate.getMinutes();
 
+    const isExpired = (basket) => {
+      const expiryDate = new Date(basket.expiryDate + "T15:30:00");
+      return (
+        !basket.isActive ||
+        expiryDate <= currentDate ||
+        (expiryDate.toDateString() === currentDate.toDateString() &&
+          (currentHours > 15 || (currentHours === 15 && currentMinutes >= 30)))
+      );
+    };
+
     if (filter === "EXPIRED") {
-      const expiredData = baskets.filter((ele) => {
-        const expiryDate = new Date(ele.expiryDate + "T15:30:00"); // Assuming the expiry date is in "YYYY-MM-DD" format
-
-        // Check if the basket is expired
-        const isExpired =
-          !ele.isActive ||
-          expiryDate <= currentDate ||
-          (expiryDate.toDateString() === currentDate.toDateString() &&
-            (currentHours > 15 ||
-              (currentHours === 15 && currentMinutes >= 30)));
-
-        return isExpired;
-      });
-
+      const expiredData = baskets.filter(isExpired);
       setFilterData(expiredData);
-    } else if (filter !== "") {
-      const filteredData = baskets.filter((ele) => {
-        const expiryDate = new Date(ele.expiryDate);
-        const isActiveAndNotExpired =
-          ele.isActive &&
-          (expiryDate >= currentDate ||
-            (expiryDate.getDate() === currentDate.getDate() &&
-              expiryDate.getMonth() === currentDate.getMonth() &&
-              expiryDate.getFullYear() === currentDate.getFullYear() &&
-              (currentHours < 15 ||
-                (currentHours === 15 && currentMinutes < 30))));
-
-        return ele.rahStatus === filter && isActiveAndNotExpired;
-      });
-      setFilterData(filteredData);
+    } else if (filter === "PENDING") {
+      const pendingData = baskets.filter(
+        (basket) =>
+          basket.instrumentList.some(
+            (instrument) =>
+              instrument.instrumentType === "Primary" &&
+              instrument.raHeadStatus === ""
+          ) && !isExpired(basket)
+      );
+      setFilterData(pendingData);
+    } else if (filter === "APPROVED") {
+      const approvedData = baskets.filter(
+        (basket) =>
+          basket.instrumentList.some(
+            (instrument) => instrument.raHeadStatus === "APPROVED"
+          ) && !isExpired(basket)
+      );
+      setFilterData(approvedData);
+    } else if (filter === "REJECTED") {
+      const rejectedData = baskets.filter(
+        (basket) =>
+          basket.instrumentList.some(
+            (instrument) => instrument.raHeadStatus === "REJECTED"
+          ) && !isExpired(basket)
+      );
+      setFilterData(rejectedData);
     } else {
-      setFilterData(baskets);
+      setFilterData(baskets); // Show all baskets
     }
   }, [filter, baskets]);
 
@@ -141,7 +152,7 @@ export default function RaDashboard() {
       };
     }
 
-    switch (basket.rahStatus) {
+    switch (handleStatus(basket)) {
       case "APPROVED":
         return {
           borderColor: "green.500",
@@ -200,6 +211,63 @@ export default function RaDashboard() {
 
     return isExpired;
   }
+
+  const handleStatus = (basket) => {
+    let isApproved = false;
+    let isRejected = false;
+    let isPending = false;
+
+    // Check instruments of type "Primary"
+    basket.instrumentList.forEach((instrument) => {
+      if (instrument.instrumentType === "Primary") {
+        if (instrument.raHeadStatus === "APPROVED") {
+          isApproved = true;
+        } else if (instrument.raHeadStatus === "") {
+          isPending = true;
+        } else if (instrument.raHeadStatus === "REJECTED") {
+          isRejected = true;
+        }
+      }
+    });
+
+    // Setting the basket status based on the instruments
+    if (isRejected) {
+      // setStatus("REJECTED");
+      return "REJECTED";
+    } else if (isPending) {
+      return "PENDING";
+    } else if (isApproved) {
+      // setStatus("APPROVED");
+
+      return "APPROVED";
+    }
+  };
+
+  useEffect(() => {
+    // Loop over filterData and check each basket
+    const updatedEditableBaskets = {};
+
+    filterData.forEach((basket) => {
+      let editBasket = false;
+
+      // Check instruments in the basket
+      basket.instrumentList.forEach((instrument) => {
+        if (instrument.raHeadStatus === "") {
+          editBasket = true;
+        }
+      });
+
+      // Store edit status per basket
+      if (editBasket) {
+        updatedEditableBaskets[basket._id] = true;
+        setAnyChanges("Edit status is Pending");
+      } else {
+        updatedEditableBaskets[basket._id] = false;
+      }
+    });
+
+    setEditableBaskets(updatedEditableBaskets);
+  }, [filterData]); // This effect runs when filterData changes
 
   return (
     <Box>
@@ -327,7 +395,7 @@ export default function RaDashboard() {
                               alt={basket.title}
                               boxSize="50px"
                               mr={4}
-                              borderRadius="full"
+                              borderRadius="md"
                               border="2px solid"
                               borderColor="gray.200"
                             />
@@ -335,20 +403,40 @@ export default function RaDashboard() {
                               <Heading size="md">
                                 {truncateHeading(basket.title)}
                               </Heading>
-
-                              <Badge
-                                colorScheme={
-                                  isExpired(basket)
-                                    ? "purple"
-                                    : basket.rahStatus === "APPROVED"
-                                    ? "green"
-                                    : basket.rahStatus === "REJECTED"
-                                    ? "red"
-                                    : "gray"
-                                }
+                              <Box
+                                display={"flex"}
+                                justifyContent={"space-between"}
                               >
-                                {basket.rahStatus}
-                              </Badge>
+                                <Badge
+                                  colorScheme={
+                                    isExpired(basket)
+                                      ? "purple"
+                                      : handleStatus(basket) === "APPROVED"
+                                      ? "green"
+                                      : handleStatus(basket) === "REJECTED"
+                                      ? "red"
+                                      : "gray"
+                                  }
+                                >
+                                  {handleStatus(basket)}
+                                </Badge>
+
+                                {editableBaskets[basket._id] && (
+                                  <Badge
+                                    // colorScheme={
+                                    //   isExpired(basket)
+                                    //     ? "purple"
+                                    //     : handleStatus(basket) === "APPROVED"
+                                    //     ? "green"
+                                    //     : handleStatus(basket) === "REJECTED"
+                                    //     ? "red"
+                                    //     : "gray"
+                                    // }
+                                  >
+                                    Update
+                                  </Badge>
+                                )}
+                              </Box>
                             </Box>
                           </Flex>
                         </CardHeader>
@@ -413,6 +501,20 @@ export default function RaDashboard() {
                                 </Text>
                               </Flex>
                             </Box>
+
+                            {/* Basket Update Section */}
+                            {/* {editableBaskets[basket._id] && (
+                              <Box>
+                                <Flex justify="space-between">
+                                  <Text fontWeight="bold" fontSize="lg">
+                                    Basket Update
+                                  </Text>
+                                  <Text pt="2" fontSize="sm">
+                                    {anyChanges || "Pending"}
+                                  </Text>
+                                </Flex>
+                              </Box>
+                            )} */}
                           </Stack>
                         </CardBody>
                       </Card>

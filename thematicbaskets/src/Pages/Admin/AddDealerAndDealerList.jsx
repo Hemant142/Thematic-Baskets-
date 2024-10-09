@@ -189,7 +189,8 @@ export default function AddDealerAndDealerList() {
 
       <Tabs variant="unstyled" mt="10px" borderBottomColor="gray.200">
         <TabList display="flex" flexWrap="wrap">
-          <Tab
+       
+         <Tab
             as={Link}
             to="/admin/dashboard"
             fontWeight="bold"
@@ -204,6 +205,7 @@ export default function AddDealerAndDealerList() {
           >
             Basket List
           </Tab>
+
           <Tab
             as={Link}
             to="/admin/algolist"

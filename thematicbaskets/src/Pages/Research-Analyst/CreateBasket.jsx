@@ -46,7 +46,7 @@ export default function CreateBasket() {
   const dispatch = useDispatch();
   const data = useSelector((store) => store.symbolsReducer.symbols);
   const underLyingIndex=useSelector((store)=>store.symbolsReducer.underlyingIndex);
-  // console.log(underLyingIndex,"underlying ")
+  console.log(data,"Symbols ")
   let token = Cookies.get("login_token_ra");
 
   const initialData = {
@@ -125,19 +125,6 @@ export default function CreateBasket() {
     };
   }, [showOptions]);
 
-  // const handleClickOutside = (event) => {
-  //   if (inputRef.current && !inputRef.current.contains(event.target)) {
-  //     // setShowOptions(false);
-  //     setSelectedRowIndex(null); // Clear selected row index
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   document.addEventListener("mousedown", handleClickOutside);
-  //   return () => {
-  //     document.removeEventListener("mousedown", handleClickOutside);
-  //   };
-  // }, []);
 
   const handleInputChange = (e) => {
     setBasketData({
@@ -190,8 +177,8 @@ export default function CreateBasket() {
       const newRows = Array.from({ length: numRows }, () => ({
         name: "",
         instrument: "",
-        quantity: 0,
-        stopLoss: 0,
+        quantity: 2,
+        stopLoss: 1,
         takeProfit: 0,
         securityId: 0,
         currentPrice: 0,
@@ -1226,7 +1213,7 @@ export default function CreateBasket() {
                                     bg="white"
                                     boxShadow="lg"
                                     zIndex={10}
-                                    maxHeight="200px"
+                                    maxHeight="100px"
                                     overflowY="auto"
                                     borderRadius="md"
                                     mt={1}

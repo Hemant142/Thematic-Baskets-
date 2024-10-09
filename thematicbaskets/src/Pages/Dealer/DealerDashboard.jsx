@@ -54,7 +54,7 @@ export default function DealerDashboard() {
           Cookies.set("login_token_dealer", ``);
           Cookies.set("username_dealer", "");
 
-          navigate("/dealer");
+          // navigate("/dealer");
         } else {
           let approvedBaskets = res.data.response.data.filter(
             (ele) => ele.rahStatus === "APPROVED"
@@ -157,7 +157,7 @@ export default function DealerDashboard() {
                         <CardHeader p={4} bg="gray.50">
                           <Flex align="center">
                             <Image
-                              src={basket.basketSymbolUrl}
+                              src={basket.basketSymbolURL}
                               alt={basket.title}
                               boxSize="50px"
                               mr={4}
@@ -240,7 +240,7 @@ export default function DealerDashboard() {
                                   Exchange Type
                                 </Text>
                                 <Text pt="2" fontSize="sm">
-                                  {basket.exchangeType}
+                                  {basket.exchange}
                                 </Text>
                               </Flex>
                             </Box>
